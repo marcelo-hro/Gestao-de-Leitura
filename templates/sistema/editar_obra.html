@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Obra - {{ obra.titulo }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos gerais para inputs de texto e números */
+        input[type="text"], 
+        input[type="number"], 
+        textarea {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 0.5rem !important;
+            padding: 0.625rem !important;
+            width: 100% !important;
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.75rem !important;
+        }
+
+        /* Estilo para selects normais (como o formato) */
+        select:not([multiple]) {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 0.5rem !important;
+            padding: 0.625rem !important;
+            width: 100% !important;
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.75rem !important;
+        }
+
+        /* Estilo dedicado para a lista de checkboxes de géneros */
+        <style>
+        #id_generos {
+            padding: 0.75rem !important;
+            margin: 0.25rem 0 0.75rem 0 !important;
+            max-height: 160px !important;
+            overflow-y: auto !important;
+            background-color: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 0.5rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+        
+        /* Força a cor do texto a ficar escura em TUDO dentro da caixa */
+      #id_generos {
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 0.5rem !important;
+    padding: 0.75rem !important;
+    max-height: 160px !important;
+    overflow-y: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Força a cor preta em todos os textos dentro da caixa branca */
+#id_generos, #id_generos * {
+    color: #000000 !important;
+}
+
+#id_generos div, #id_generos label, #id_generos li {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.25rem !important;
+}
+    </style>
+</head>
+<body class="bg-slate-950 min-h-screen flex items-center justify-center p-6">
+
+    <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-8">
+        
+        <!-- Cabeçalho -->
+        <div class="flex items-center space-x-3 mb-6 pb-4 border-b border-slate-800">
+            <div class="bg-amber-600/20 text-amber-400 p-2.5 rounded-lg border border-amber-500/30">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-100">Editar Obra</h1>
+                <p class="text-xs text-slate-400">A alterar os dados de: <span class="text-amber-300 font-semibold">{{ obra.titulo }}</span></p>
+            </div>
+        </div>
+
+        <!-- Formulário -->
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            {{ form.as_p }}
+
+            <!-- Botões de Ação -->
+            <div class="flex items-center justify-between pt-6 border-t border-slate-800 mt-8">
+                <a href="{% url 'catalogo' %}" class="text-sm font-medium text-slate-400 hover:text-slate-200 transition flex items-center space-x-1">
+                    <span>← Voltar ao Catálogo</span>
+                </a>
+                
+                <button type="submit" class="bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-semibold px-6 py-2.5 rounded-lg shadow-lg shadow-amber-600/20 text-sm transition-all duration-200">
+                    Atualizar Obra
+                </button>
+            </div>
+        </form>
+
+    </div>
+
+</body>
+</html>

@@ -1,77 +1,380 @@
-<!DOCTYPE html>
-<html lang="pt-br" class="bg-slate-950 text-slate-100">
-<head>
-    <meta charset="UTF-8">
-    <title>Detalhes - {{ obra.titulo }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="p-8 max-w-5xl mx-auto min-h-screen">
-    
-    <!-- Voltar -->
-    <a href="{% url 'catalogo' %}" class="text-indigo-400 hover:text-indigo-300 mb-8 inline-block font-medium transition-colors">
-        ← Voltar ao Catálogo
-    </a>
-    
-    <div class="flex flex-col md:flex-row gap-10">
-        
-        <!-- Coluna da Esquerda: Capa -->
-        <div class="w-full md:w-80 h-[480px] bg-slate-900 rounded-xl border border-slate-700 shadow-2xl shrink-0 overflow-hidden flex items-center justify-center">
-            {% if obra.imagem %}
-                <img src="{{ obra.imagem.url }}" alt="{{ obra.titulo }}" class="w-full h-full object-cover">
-            {% else %}
-                <span class="text-slate-500">Sem Capa</span>
-            {% endif %}
-        </div>
-        
-        <!-- Coluna da Direita: Detalhes -->
-        <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-lg flex flex-col">
-            
-            <div class="mb-6 pb-6 border-b border-slate-800">
-                <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">{{ obra.titulo }}</h1>
-                <p class="text-lg text-slate-400">Autor: <span class="text-slate-200 font-medium">{{ obra.autor }}</span></p>
-            </div>
-            
-            <div class="space-y-6 flex-1">
-                <!-- Formato -->
-                <div>
-                    <h3 class="text-sm uppercase tracking-wider text-slate-500 font-semibold mb-1">Formato</h3>
-                    <span class="text-sm font-bold px-3 py-1 rounded inline-block {% if obra.formato == 'BOOK' %}bg-emerald-900/50 text-emerald-400 border border-emerald-800{% else %}bg-sky-900/50 text-sky-400 border border-sky-800{% endif %}">
-                        {{ obra.get_formato_display }}
-                    </span>
-                </div>
+{% extends "base.html" %}
 
-                <!-- Unidades -->
-                <div>
-                    <h3 class="text-sm uppercase tracking-wider text-slate-500 font-semibold mb-1">
-                        {% if obra.formato == 'BOOK' %}Total de Páginas{% else %}Total de Capítulos{% endif %}
-                    </h3>
-                    <p class="text-xl font-medium text-slate-200">{{ obra.total_de_unidades }}</p>
-                </div>
+{% block titulo %}Detalhes - {{ obra.titulo }} | Gestão de Leitura{% endblock %}
+{% block atual_obras %}aria-current="page"{% endblock %}
 
-                <!-- Gêneros -->
-                <div>
-                    <h3 class="text-sm uppercase tracking-wider text-slate-500 font-semibold mb-2">Gêneros</h3>
-                    <div class="flex flex-wrap gap-2">
-                        {% for genero in obra.generos.all %}
-                            <span class="text-sm bg-slate-800 px-3 py-1 rounded-md text-slate-300 border border-slate-600 shadow-sm">
-                                {{ genero.nome }}
-                            </span>
-                        {% empty %}
-                            <span class="text-sm text-slate-500 italic">Nenhum gênero classificado.</span>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
+{% block conteudo %}
+<a href="{% url 'catalogo' %}"
+   class="mb-8 inline-block font-medium text-indigo-400 transition-colors hover:text-indigo-300">
+    ← Voltar ao Catálogo
+</a>
 
-            <!-- Botões de Ação na página de detalhes (Opcional, mas útil) -->
-            <div class="mt-8 pt-6 border-t border-slate-800 flex gap-3">
-                <a href="{% url 'editar_obra' obra.id %}" class="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-lg transition font-medium text-sm shadow-lg">
-                    Editar Obra
-                </a>
-            </div>
-
-        </div>
+<div class="flex flex-col gap-10 md:flex-row">
+    <div class="flex h-[480px] w-full shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl md:w-80">
+        {% if obra.imagem %}
+            <img src="{{ obra.imagem.url }}"
+                 alt="Capa de {{ obra.titulo }}"
+                 class="h-full w-full object-cover">
+        {% else %}
+            <span class="text-slate-500">Sem Capa</span>
+        {% endif %}
     </div>
 
-</body>
-</html>
+    <div class="flex flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-lg">
+        <div class="mb-6 border-b border-slate-800 pb-6">
+            <h1 class="mb-2 text-3xl font-bold text-white md:text-4xl">{{ obra.titulo }}</h1>
+            <p class="text-lg text-slate-400">
+                Autor: <span class="font-medium text-slate-200">{{ obra.autor }}</span>
+            </p>
+        </div>
+
+        {% if obra.estado != 'ATIVA' %}
+            <div class="mb-6 rounded-lg border p-4 text-sm
+                {% if obra.estado == 'REJEITADA' %}
+                    border-rose-500/40 bg-rose-500/10 text-rose-200
+                {% else %}
+                    border-amber-500/40 bg-amber-500/10 text-amber-200
+                {% endif %}">
+                <p class="font-semibold">Status: {{ obra.get_estado_display }}</p>
+                {% if obra.estado == 'REJEITADA' and obra.motivo_rejeicao %}
+                    <p class="mt-1">Motivo: {{ obra.motivo_rejeicao }}</p>
+                {% endif %}
+                {% if obra.submetido_por %}
+                    <p class="mt-1 text-xs opacity-80">
+                        Submetida por {{ obra.submetido_por.username }} em
+                        {{ obra.criado_em|date:"d/m/Y H:i" }}.
+                    </p>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <div class="flex-1 space-y-6">
+            <div>
+                <h3 class="mb-1 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                    Formato
+                </h3>
+                <span class="inline-block rounded px-3 py-1 text-sm font-bold
+                    {% if obra.formato == 'BOOK' %}
+                        border border-emerald-800 bg-emerald-900/50 text-emerald-400
+                    {% else %}
+                        border border-sky-800 bg-sky-900/50 text-sky-400
+                    {% endif %}">
+                    {{ obra.get_formato_display }}
+                </span>
+            </div>
+
+            <div>
+                <h3 class="mb-1 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                    {% if obra.formato == 'BOOK' %}Total de Páginas{% else %}Total de Capítulos{% endif %}
+                </h3>
+                <p class="text-xl font-medium text-slate-200">{{ obra.total_de_unidades }}</p>
+            </div>
+
+            <div>
+                <h3 class="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                    Gêneros
+                </h3>
+                <div class="flex flex-wrap gap-2">
+                    {% for genero in obra.generos.all %}
+                        <span class="rounded-md border border-slate-600 bg-slate-800 px-3 py-1 text-sm text-slate-300 shadow-sm">
+                            {{ genero.nome }}
+                        </span>
+                    {% empty %}
+                        <span class="text-sm italic text-slate-500">
+                            Nenhum gênero classificado.
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div>
+                <h3 class="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                    Sinopse
+                </h3>
+                <p class="whitespace-pre-line leading-relaxed text-slate-300">
+                    {{ obra.sinopse|default:"Sinopse não informada." }}
+                </p>
+            </div>
+
+            {% if obra.estado == 'ATIVA' %}
+                <div class="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-5">
+                    {% if user.is_authenticated %}
+                        {% if leitura %}
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                                        Seu acompanhamento
+                                    </h3>
+                                    <p class="mt-1 text-sm text-slate-300">
+                                        Status:
+                                        <strong class="text-indigo-300">{{ leitura.get_status_display }}</strong>
+                                    </p>
+                                </div>
+
+                                <span class="rounded-full bg-indigo-500/15 px-3 py-1 text-sm font-bold text-indigo-200">
+                                    {{ leitura.percentual }}%
+                                </span>
+                            </div>
+
+                            <div class="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-800"
+                                 role="progressbar"
+                                 aria-label="Progresso de {{ obra.titulo }}"
+                                 aria-valuenow="{{ leitura.percentual }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                <div class="h-full rounded-full bg-indigo-500"
+                                     style="width: {{ leitura.percentual }}%"></div>
+                            </div>
+
+                            <p class="mt-2 text-xs text-slate-400">
+                                {{ leitura.progresso_atual }} de {{ obra.total_de_unidades }}
+                                {% if obra.formato == 'BOOK' %}páginas{% else %}capítulos{% endif %}
+                            </p>
+
+                            <form method="post" action="{% url 'atualizar_progresso' leitura.id %}" class="mt-4 flex flex-wrap items-end gap-3">
+                                {% csrf_token %}
+
+                                <div class="min-w-[180px] flex-1">
+                                    <label for="{{ leitura_form.progresso_atual.id_for_label }}"
+                                           class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        Atualizar progresso
+                                    </label>
+                                    {{ leitura_form.progresso_atual }}
+                                </div>
+
+                                <button type="submit"
+                                        class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                    Atualizar
+                                </button>
+                            </form>
+                        {% else %}
+                            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                                Acompanhe sua leitura
+                            </h3>
+                            <p class="mt-1 text-sm text-slate-300">
+                                Registre o progresso inicial e continue de onde parou.
+                            </p>
+
+                            <form method="post" action="{% url 'iniciar_leitura' obra.id %}" class="mt-4 flex flex-wrap items-end gap-3">
+                                {% csrf_token %}
+
+                                <div class="min-w-[180px] flex-1">
+                                    <label for="{{ leitura_form.progresso_atual.id_for_label }}"
+                                           class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        Progresso inicial
+                                    </label>
+                                    {{ leitura_form.progresso_atual }}
+                                    <p class="mt-1 text-xs text-slate-500">
+                                        de {{ obra.total_de_unidades }}
+                                        {% if obra.formato == 'BOOK' %}páginas{% else %}capítulos{% endif %}
+                                    </p>
+                                </div>
+
+                                <button type="submit"
+                                        class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                    Começar a acompanhar
+                                </button>
+                            </form>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-sm text-slate-300">
+                            <a href="{% url 'login' %}?next={% url 'visualizar_obra' obra.id %}"
+                               class="font-semibold text-indigo-300 hover:text-indigo-200">
+                                Entre
+                            </a>
+                            para acompanhar sua leitura.
+                        </p>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if obra.estado == 'ATIVA' and user.is_authenticated %}
+                <div class="rounded-lg border border-slate-700 bg-slate-950/40 p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                            Suas estantes
+                        </h3>
+
+                        <a href="{% url 'minhas_estantes' %}"
+                           class="text-sm font-semibold text-indigo-300 hover:text-indigo-200">
+                            Gerenciar estantes →
+                        </a>
+                    </div>
+
+                    {% if estantes_usuario %}
+                        {% if estantes_da_obra %}
+                            <p class="mt-3 text-sm text-slate-400">
+                                Já está em:
+                                {% for estante in estantes_da_obra %}
+                                    <a href="{% url 'visualizar_estante' estante.id %}"
+                                       class="font-semibold text-indigo-300 hover:text-indigo-200">
+                                        {{ estante.nome }}
+                                    </a>{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </p>
+                        {% endif %}
+
+                        <form method="post" action="{% url 'adicionar_obra_estante' %}" class="mt-4 flex flex-wrap items-end gap-3">
+                            {% csrf_token %}
+                            <input type="hidden" name="obra_id" value="{{ obra.id }}">
+                            <input type="hidden" name="next" value="{{ request.path }}">
+
+                            <div class="min-w-[200px] flex-1">
+                                <label for="estante_id"
+                                       class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                    Adicionar à estante
+                                </label>
+                                <select id="estante_id" name="estante_id" required
+                                        class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                                    <option value="">Selecione uma estante</option>
+                                    {% for estante in estantes_usuario %}
+                                        <option value="{{ estante.id }}">{{ estante.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <button type="submit"
+                                    class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                Adicionar
+                            </button>
+                        </form>
+                    {% else %}
+                        <p class="mt-3 text-sm text-slate-300">
+                            Você ainda não tem estantes.
+                            <a href="{% url 'criar_estante' %}"
+                               class="font-semibold text-indigo-300 hover:text-indigo-200">
+                                Crie uma
+                            </a>
+                            para organizar suas obras.
+                        </p>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if obra.estado == 'ATIVA' %}
+                <section aria-labelledby="avaliacoes" class="border-t border-slate-800 pt-6">
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <h2 id="avaliacoes" class="text-lg font-bold">Avaliações</h2>
+
+                            {% if total_avaliacoes %}
+                                <p class="mt-1 text-sm text-slate-400">
+                                    <span class="text-2xl font-bold text-amber-300">{{ media_notas|floatformat:1 }}</span>
+                                    <span>/ 5</span>
+                                    · {{ total_avaliacoes }}
+                                    {% if total_avaliacoes == 1 %}avaliação{% else %}avaliações{% endif %}
+                                </p>
+                            {% else %}
+                                <p class="mt-1 text-sm text-slate-400">Ainda não há avaliações.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if user.is_authenticated %}
+                        <form method="post" action="{% url 'salvar_avaliacao' obra.id %}"
+                              class="mt-4 rounded-lg border border-slate-700 bg-slate-950/40 p-4">
+                            {% csrf_token %}
+
+                            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                                Sua avaliação
+                            </h3>
+
+                            <div class="mt-3 grid gap-3 sm:grid-cols-[160px_1fr]">
+                                <div>
+                                    <label for="{{ avaliacao_form.nota.id_for_label }}"
+                                           class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        {{ avaliacao_form.nota.label }}
+                                    </label>
+                                    {{ avaliacao_form.nota }}
+                                </div>
+
+                                <div>
+                                    <label for="{{ avaliacao_form.comentario.id_for_label }}"
+                                           class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        {{ avaliacao_form.comentario.label }}
+                                    </label>
+                                    {{ avaliacao_form.comentario }}
+                                </div>
+                            </div>
+
+                            <div class="mt-3 flex flex-wrap items-center gap-3">
+                                <button type="submit"
+                                        class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                    {% if minha_avaliacao %}Atualizar avaliação{% else %}Salvar avaliação{% endif %}
+                                </button>
+                            </div>
+                        </form>
+
+                        {% if minha_avaliacao %}
+                            <form method="post" action="{% url 'deletar_avaliacao' minha_avaliacao.id %}"
+                                  class="mt-2">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="text-sm font-semibold text-rose-300 hover:text-rose-200">
+                                    Remover minha avaliação
+                                </button>
+                            </form>
+                        {% endif %}
+                    {% else %}
+                        <p class="mt-4 text-sm text-slate-300">
+                            <a href="{% url 'login' %}?next={% url 'visualizar_obra' obra.id %}"
+                               class="font-semibold text-indigo-300 hover:text-indigo-200">
+                                Entre
+                            </a>
+                            para avaliar esta obra.
+                        </p>
+                    {% endif %}
+
+                    <ul class="mt-5 space-y-3">
+                        {% for avaliacao in avaliacoes %}
+                            <li class="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <span class="font-semibold">{{ avaliacao.usuario.username }}</span>
+                                        {% if avaliacao.usuario == user %}
+                                            <span class="ml-2 rounded-full bg-indigo-500/15 px-2 py-0.5 text-xs font-bold text-indigo-200">
+                                                Você
+                                            </span>
+                                        {% endif %}
+                                    </div>
+
+                                    <span class="text-sm font-bold text-amber-300"
+                                          role="img"
+                                          aria-label="Nota {{ avaliacao.nota }} de 5">
+                                        ★ {{ avaliacao.nota }}/5
+                                    </span>
+                                </div>
+
+                                {% if avaliacao.comentario %}
+                                    <p class="mt-2 whitespace-pre-line text-sm text-slate-300">{{ avaliacao.comentario }}</p>
+                                {% endif %}
+
+                                <p class="mt-2 text-xs text-slate-500">
+                                    Atualizada em {{ avaliacao.atualizada_em|date:"d/m/Y H:i" }}
+                                </p>
+                            </li>
+                        {% empty %}
+                            <li class="text-sm text-slate-400">
+                                Seja o primeiro a avaliar esta obra.
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% endif %}
+        </div>
+
+        {% if pode_moderar %}
+            <div class="mt-8 flex flex-wrap gap-3 border-t border-slate-800 pt-6">
+                <a href="{% url 'editar_obra' obra.id %}"
+                   class="rounded-lg bg-slate-700 px-5 py-2.5 text-sm font-medium text-white shadow-lg transition hover:bg-slate-600">
+                    Editar Obra
+                </a>
+                <a href="{% url 'deletar_obra' obra.id %}"
+                   class="rounded-lg border border-red-800/50 bg-red-900/40 px-5 py-2.5 text-sm font-medium text-red-300 transition hover:bg-red-800/80">
+                    Eliminar Obra
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

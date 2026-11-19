@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>{% block titulo %}Gestão de Leitura{% endblock %}</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% block estilos %}{% endblock %}
+</head>
+
+<body class="min-h-screen bg-[#0c1018] text-slate-100">
+    <a href="#conteudo"
+       class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">
+        Pular para o conteúdo
+    </a>
+
+    <header class="border-b border-slate-800 bg-[#111827]">
+        <nav aria-label="Menu principal"
+             class="mx-auto flex max-w-[1680px] flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-10">
+
+            <a href="{% url 'dashboard' %}"
+               class="flex items-center gap-3 text-base font-bold sm:text-lg">
+                <span aria-hidden="true"
+                      class="grid h-9 w-9 place-items-center rounded-lg bg-indigo-500/20 text-indigo-300">
+                    ▤
+                </span>
+                Gestão de Leitura
+            </a>
+
+            <div class="flex flex-wrap items-center gap-4 text-sm font-medium">
+                <a href="{% url 'dashboard' %}" {% block atual_inicio %}{% endblock %}
+                   class="text-slate-300 hover:text-white aria-[current=page]:text-indigo-300">
+                    Início
+                </a>
+
+                <a href="{% url 'catalogo' %}" {% block atual_obras %}{% endblock %}
+                   class="text-slate-300 hover:text-white aria-[current=page]:text-indigo-300">
+                    Obras
+                </a>
+
+                {% if pode_moderar %}
+                    <a href="{% url 'painel_moderacao' %}" {% block atual_moderacao %}{% endblock %}
+                       class="flex items-center gap-1.5 text-slate-300 hover:text-white aria-[current=page]:text-amber-300">
+                        Moderação
+                        {% if obras_pendentes %}
+                            <span class="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-300">
+                                {{ obras_pendentes }}
+                            </span>
+                        {% endif %}
+                    </a>
+                {% endif %}
+
+                {% if user.is_authenticated %}
+                    <a href="{% url 'minhas_leituras' %}" {% block atual_leituras %}{% endblock %}
+                       class="text-slate-300 hover:text-white aria-[current=page]:text-indigo-300">
+                        Minhas leituras
+                    </a>
+
+                    <a href="{% url 'minhas_estantes' %}" {% block atual_estantes %}{% endblock %}
+                       class="text-slate-300 hover:text-white aria-[current=page]:text-indigo-300">
+                        Estantes
+                    </a>
+
+                    {% if user.is_staff %}
+                        <a href="{% url 'admin:index' %}" class="text-slate-300 hover:text-white">
+                            Admin
+                        </a>
+                    {% endif %}
+
+                    <span class="text-slate-600" aria-hidden="true">|</span>
+                    <span class="text-slate-400">{{ user.username }}</span>
+
+                    <form method="post" action="{% url 'logout' %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="text-slate-300 hover:text-white">
+                            Sair
+                        </button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}" class="text-slate-300 hover:text-white">
+                        Entrar
+                    </a>
+                    <a href="{% url 'registro' %}"
+                       class="rounded-lg bg-indigo-500/15 px-3 py-1.5 text-indigo-200 hover:bg-indigo-500/25">
+                        Criar conta
+                    </a>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+
+    {% if messages %}
+        <div class="mx-auto max-w-[1680px] space-y-2 px-5 pt-4 sm:px-10">
+            {% for message in messages %}
+                <div role="status"
+                     class="rounded-lg border px-4 py-3 text-sm
+                            {% if message.tags == 'success' %}
+                                border-emerald-500/40 bg-emerald-500/10 text-emerald-200
+                            {% elif message.tags == 'error' %}
+                                border-rose-500/40 bg-rose-500/10 text-rose-200
+                            {% else %}
+                                border-indigo-500/40 bg-indigo-500/10 text-indigo-200
+                            {% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <main id="conteudo" class="mx-auto max-w-[1680px] px-5 py-8 sm:px-10">
+        {% block conteudo %}{% endblock %}
+    </main>
+</body>
+</html>

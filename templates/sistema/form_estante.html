@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block titulo %}{% if estante %}Editar estante{% else %}Nova estante{% endif %} | Gestão de Leitura{% endblock %}
+{% block atual_estantes %}aria-current="page"{% endblock %}
+
+{% block conteudo %}
+<a href="{% if estante %}{% url 'visualizar_estante' estante.id %}{% else %}{% url 'minhas_estantes' %}{% endif %}"
+   class="mb-6 inline-block text-sm font-semibold text-indigo-400 transition-colors hover:text-indigo-300">
+    ← Voltar
+</a>
+
+<div class="mx-auto max-w-2xl rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-lg">
+    <h1 class="text-2xl font-bold">
+        {% if estante %}Editar estante{% else %}Nova estante{% endif %}
+    </h1>
+    <p class="mt-1 text-sm text-slate-400">
+        Dê um nome para identificar sua estante. O nome deve ser único entre as suas estantes.
+    </p>
+
+    <form method="post" class="mt-6 space-y-5">
+        {% csrf_token %}
+
+        <div>
+            <label for="{{ form.nome.id_for_label }}"
+                   class="mb-1.5 block text-sm font-semibold text-slate-300">
+                {{ form.nome.label }}
+            </label>
+            {{ form.nome }}
+
+            {% for erro in form.nome.errors %}
+                <p class="mt-1 text-sm text-rose-300">{{ erro }}</p>
+            {% endfor %}
+        </div>
+
+        {% if form.non_field_errors %}
+            <div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <div class="flex flex-wrap gap-3 border-t border-slate-800 pt-5">
+            <button type="submit"
+                    class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                {% if estante %}Salvar alterações{% else %}Criar estante{% endif %}
+            </button>
+
+            <a href="{% if estante %}{% url 'visualizar_estante' estante.id %}{% else %}{% url 'minhas_estantes' %}{% endif %}"
+               class="rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-indigo-400">
+                Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

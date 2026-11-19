@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block titulo %}Início | Gestão de Leitura{% endblock %}
+{% block atual_inicio %}aria-current="page"{% endblock %}
+
+{% block conteudo %}
+<h1 class="sr-only">Gestão de Leitura</h1>
+
+{% if estatisticas %}
+<section aria-labelledby="estatisticas" class="mb-10">
+    <h2 id="estatisticas" class="sr-only">Estatísticas</h2>
+
+    <dl class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <dt class="text-xs font-semibold uppercase tracking-wider text-slate-500">Obras ativas</dt>
+            <dd class="mt-1 text-2xl font-bold text-indigo-300">{{ estatisticas.obras_ativas }}</dd>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <dt class="text-xs font-semibold uppercase tracking-wider text-slate-500">Lendo</dt>
+            <dd class="mt-1 text-2xl font-bold text-sky-300">{{ estatisticas.lendo }}</dd>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <dt class="text-xs font-semibold uppercase tracking-wider text-slate-500">Concluídas</dt>
+            <dd class="mt-1 text-2xl font-bold text-emerald-300">{{ estatisticas.concluidas }}</dd>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <dt class="text-xs font-semibold uppercase tracking-wider text-slate-500">Avaliações</dt>
+            <dd class="mt-1 text-2xl font-bold text-amber-300">{{ estatisticas.avaliacoes }}</dd>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <dt class="text-xs font-semibold uppercase tracking-wider text-slate-500">Estantes</dt>
+            <dd class="mt-1 text-2xl font-bold text-violet-300">{{ estatisticas.estantes }}</dd>
+        </div>
+    </dl>
+</section>
+{% endif %}
+
+{% if continuar_lendo %}
+<section aria-labelledby="continuar-lendo" class="mb-10">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <h2 id="continuar-lendo" class="text-2xl font-bold">
+            <span class="text-indigo-300" aria-hidden="true">▤</span>
+            Continuar a leitura
+        </h2>
+
+        <a href="{% url 'minhas_leituras' %}"
+           class="text-sm font-semibold text-indigo-300 hover:text-indigo-200">
+            Minhas leituras →
+        </a>
+    </div>
+
+    <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {% for leitura in continuar_lendo %}
+            <li>
+                <a href="{% url 'visualizar_obra' leitura.obra.id %}"
+                   class="flex gap-4 rounded-xl border border-slate-800 bg-slate-900 p-4 transition hover:border-indigo-400">
+                    <div class="h-24 w-16 shrink-0 overflow-hidden rounded-md border border-slate-700 bg-slate-950">
+                        {% if leitura.obra.imagem %}
+                            <img src="{{ leitura.obra.imagem.url }}" alt="" loading="lazy"
+                                 class="h-full w-full object-cover">
+                        {% else %}
+                            <div class="grid h-full place-items-center text-[10px] text-slate-500">
+                                Sem capa
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate font-semibold text-slate-100" title="{{ leitura.obra.titulo }}">
+                            {{ leitura.obra.titulo }}
+                        </p>
+                        <p class="truncate text-xs text-slate-400">{{ leitura.obra.autor }}</p>
+
+                        <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-800"
+                             role="progressbar"
+                             aria-label="Progresso de {{ leitura.obra.titulo }}"
+                             aria-valuenow="{{ leitura.percentual }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100">
+                            <div class="h-full rounded-full bg-indigo-500"
+                                 style="width: {{ leitura.percentual }}%"></div>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-400">
+                            {{ leitura.percentual }}% · {{ leitura.progresso_atual }}/{{ leitura.obra.total_de_unidades }}
+                        </p>
+                    </div>
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+{% if minhas_estantes %}
+<section aria-labelledby="minhas-estantes" class="mb-10">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <h2 id="minhas-estantes" class="text-2xl font-bold">
+            <span class="text-indigo-300" aria-hidden="true">▥</span>
+            Minhas estantes
+        </h2>
+
+        <a href="{% url 'minhas_estantes' %}"
+           class="text-sm font-semibold text-indigo-300 hover:text-indigo-200">
+            Ver todas →
+        </a>
+    </div>
+
+    <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {% for estante in minhas_estantes %}
+            <li>
+                <a href="{% url 'visualizar_estante' estante.id %}"
+                   class="block rounded-xl border border-slate-800 bg-slate-900 p-5 transition hover:border-indigo-400">
+                    <p class="truncate font-semibold" title="{{ estante.nome }}">{{ estante.nome }}</p>
+                    <p class="mt-2 text-sm text-slate-400">
+                        {{ estante.qtd_obras }} obra{{ estante.qtd_obras|pluralize:"s" }}
+                    </p>
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+{% if minhas_submissoes %}
+<section aria-labelledby="minhas-submissoes" class="mb-10">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <h2 id="minhas-submissoes" class="text-2xl font-bold">
+            <span class="text-amber-300" aria-hidden="true">◷</span>
+            Minhas submissões
+        </h2>
+     {% if pode_moderar %}
+        <a href="{% url 'adicionar_obra' %}"
+        
+           class="text-sm font-semibold text-indigo-300 hover:text-indigo-200">
+            + Nova submissão
+        </a>
+    {% endif %}
+    </div>
+
+    <ul class="grid gap-3">
+        {% for obra in minhas_submissoes %}
+            <li>
+                <a href="{% url 'visualizar_obra' obra.id %}"
+                   class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-5 py-4 transition hover:border-indigo-400">
+                    <div class="min-w-0">
+                        <p class="truncate font-semibold text-slate-100">{{ obra.titulo }}</p>
+                        <p class="mt-0.5 text-xs text-slate-400">
+                            Enviada em {{ obra.criado_em|date:"d/m/Y H:i" }}
+                        </p>
+                        {% if obra.estado == 'REJEITADA' and obra.motivo_rejeicao %}
+                            <p class="mt-1 text-xs text-rose-300">Motivo: {{ obra.motivo_rejeicao }}</p>
+                        {% endif %}
+                    </div>
+
+                    <span class="rounded-full px-3 py-1 text-xs font-bold
+                        {% if obra.estado == 'PENDENTE' %}
+                            bg-amber-500/15 text-amber-300
+                        {% else %}
+                            bg-rose-500/15 text-rose-300
+                        {% endif %}">
+                        {{ obra.get_estado_display }}
+                    </span>
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+<section aria-labelledby="destaques">
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <h2 id="destaques" class="text-2xl font-bold">
+            <span class="text-indigo-300" aria-hidden="true">▤</span>
+            Em destaque
+        </h2>
+
+        <a href="{% url 'catalogo' %}"
+           class="rounded-lg bg-indigo-500/15 px-4 py-2 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/25">
+            Ver todas as obras →
+        </a>
+    </div>
+
+    {% if not destaques %}
+        <p class="mb-3 text-sm text-slate-400">Prévia do layout</p>
+    {% endif %}
+
+    <ul aria-label="Obras em destaque" tabindex="0"
+        class="flex snap-x gap-4 overflow-x-auto pb-4">
+        {% for obra in destaques %}
+            <li class="w-40 shrink-0 snap-start sm:w-48 lg:w-52">
+                <a href="{% url 'visualizar_obra' obra.id %}"
+                   class="block overflow-hidden rounded-xl border border-slate-800 bg-slate-800 hover:border-indigo-400">
+                    {% if obra.imagem %}
+                        <img src="{{ obra.imagem.url }}" alt="" loading="lazy"
+                             class="aspect-[2/3] w-full object-cover">
+                    {% else %}
+                        <div class="grid aspect-[2/3] place-items-center bg-slate-900 text-sm text-slate-400">
+                            Sem capa
+                        </div>
+                    {% endif %}
+
+                    <div class="space-y-2 p-3">
+                        <h3 class="truncate font-semibold" title="{{ obra.titulo }}">
+                            {{ obra.titulo }}
+                        </h3>
+                        <p class="truncate text-sm text-slate-400">{{ obra.autor }}</p>
+                        <p class="rounded-md bg-indigo-500/15 px-3 py-2 text-sm text-indigo-200">
+                            Detalhes →
+                        </p>
+                    </div>
+                </a>
+            </li>
+        {% empty %}
+            {% for item in "12345678" %}
+                <li class="w-40 shrink-0 snap-start overflow-hidden rounded-xl border border-slate-800 bg-slate-800 sm:w-48 lg:w-52">
+                    <div class="grid aspect-[2/3] place-items-center bg-gradient-to-br from-indigo-800 to-slate-900 text-4xl text-indigo-200">
+                        <span aria-hidden="true">▤</span>
+                    </div>
+                    <h3 class="p-3 text-sm font-semibold">Obra de exemplo {{ item }}</h3>
+                </li>
+            {% endfor %}
+        {% endfor %}
+    </ul>
+</section>
+
+<section aria-labelledby="recentes" class="mt-10">
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <h2 id="recentes" class="text-2xl font-bold">
+            <span class="text-amber-300" aria-hidden="true">✦</span>
+            Adicionadas recentemente
+        </h2>
+
+        {% if pode_moderar %}
+            <a href="{% url 'adicionar_obra' %}"
+               class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold hover:border-indigo-400">
+                + Adicionar obra
+            </a>
+       
+        {% endif %}
+    </div>
+
+    <ul class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        {% for obra in recentes %}
+            <li class="min-w-0">
+                <a href="{% url 'visualizar_obra' obra.id %}"
+                   class="block overflow-hidden rounded-xl border border-slate-800 bg-slate-800 hover:border-indigo-400">
+                    {% if obra.imagem %}
+                        <img src="{{ obra.imagem.url }}" alt="" loading="lazy"
+                             class="aspect-[2/3] w-full object-cover">
+                    {% else %}
+                        <div class="grid aspect-[2/3] place-items-center bg-slate-900 text-sm text-slate-400">
+                            Sem capa
+                        </div>
+                    {% endif %}
+
+                    <div class="p-3">
+                        <h3 class="truncate text-sm font-semibold" title="{{ obra.titulo }}">
+                            {{ obra.titulo }}
+                        </h3>
+                        <p class="mt-1 truncate text-xs text-slate-400">{{ obra.autor }}</p>
+                    </div>
+                </a>
+            </li>
+        {% empty %}
+            {% for item in "123456" %}
+                <li class="overflow-hidden rounded-xl border border-slate-800 bg-slate-800">
+                    <div class="grid aspect-[2/3] place-items-center bg-gradient-to-br from-slate-700 to-indigo-950 text-3xl text-indigo-200">
+                        <span aria-hidden="true">▤</span>
+                    </div>
+                    <h3 class="p-3 text-sm font-semibold">Obra de exemplo {{ item }}</h3>
+                </li>
+            {% endfor %}
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

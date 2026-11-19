@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block titulo %}Minhas estantes | Gestão de Leitura{% endblock %}
+{% block atual_estantes %}aria-current="page"{% endblock %}
+
+{% block conteudo %}
+<div class="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-5">
+    <div>
+        <h1 class="text-3xl font-bold">Minhas estantes</h1>
+        <p class="mt-1 text-sm text-slate-400">
+            Organize as obras que você quer ler, está lendo ou recomenda.
+        </p>
+    </div>
+
+    <a href="{% url 'criar_estante' %}"
+       class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">
+        + Nova estante
+    </a>
+</div>
+
+{% if estantes %}
+    <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% for estante in estantes %}
+            <li class="flex flex-col rounded-xl border border-slate-800 bg-slate-900 p-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h2 class="truncate text-lg font-bold">
+                            <a href="{% url 'visualizar_estante' estante.id %}"
+                               class="hover:text-indigo-300">
+                                {{ estante.nome }}
+                            </a>
+                        </h2>
+                        <p class="mt-1 text-sm text-slate-400">
+                            {{ estante.qtd_obras }} obra{{ estante.qtd_obras|pluralize:"s" }}
+                        </p>
+                    </div>
+
+                    <span class="rounded-full bg-indigo-500/15 px-2.5 py-1 text-xs font-bold text-indigo-200">
+                        {{ estante.qtd_obras }}
+                    </span>
+                </div>
+
+                <div class="mt-5 flex flex-wrap gap-3 border-t border-slate-800 pt-4 text-sm">
+                    <a href="{% url 'visualizar_estante' estante.id %}"
+                       class="font-semibold text-indigo-300 hover:text-indigo-200">
+                        Abrir →
+                    </a>
+                    <a href="{% url 'editar_estante' estante.id %}"
+                       class="text-slate-400 hover:text-white">
+                        Editar
+                    </a>
+                    <a href="{% url 'deletar_estante' estante.id %}"
+                       class="text-rose-300 hover:text-rose-200">
+                        Excluir
+                    </a>
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <div class="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-10 text-center">
+        <p class="text-lg font-semibold">Você ainda não tem estantes.</p>
+        <p class="mt-2 text-sm text-slate-400">
+            Crie sua primeira estante para organizar as obras do catálogo.
+        </p>
+        <a href="{% url 'criar_estante' %}"
+           class="mt-5 inline-block rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">
+            Criar estante
+        </a>
+    </div>
+{% endif %}
+{% endblock %}

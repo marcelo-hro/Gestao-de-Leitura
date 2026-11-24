@@ -1,22 +1,44 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, Q
-from django.http import Http404
+from django.db import transaction
+from django.db.models import Avg, Count, F, Max, Q
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from sistema.forms import (
     AvaliacaoForm,
+    CapituloForm,
     EstanteForm,
     LeituraForm,
     ObraForm,
     RegistroForm,
+    VolumeForm,
 )
-from .models import Avaliacao, Estante, Leitura, Obra
-from .permissoes import e_moderador, moderador_requerido
+from .models import (
+    Avaliacao,
+    Capitulo,
+    CapituloLido,
+    Estante,
+    Genero,
+    Leitura,
+    Obra,
+    Volume,
+)
+from .permissoes import (
+    admin_requerido,
+    e_admin,
+    moderador_requerido,
+    pode_gerenciar_obra,
+    pode_visualizar_obra,
+)
 
 
 def dashboard(request):
@@ -41,7 +63,7 @@ def dashboard(request):
                 usuario=request.user,
                 status=Leitura.Status.LENDO,
             )
-            .select_related("obra")
+            .select_related("obra", "ultimo_capitulo")
             .order_by("-atualizado_em")[:4]
         )
         minhas_estantes = (
@@ -115,25 +137,60 @@ def catalogo(request):
 @moderador_requerido
 def adicionar_obra(request):
     if request.method == "POST":
-        form = ObraForm(request.POST, request.FILES)
+        form = ObraForm(
+            request.POST,
+            request.FILES,
+            permitir_novo_genero=True,
+        )
+
+        if form.is_valid() and request.FILES.get("arquivo_pdf"):
+            form.add_error(
+                None,
+                "O PDF só pode ser anexado após o cadastro, na edição da obra.",
+            )
 
         if form.is_valid():
-            obra = form.save(commit=False)
-            obra.submetido_por = request.user
-            obra.estado = Obra.Estado.PENDENTE
-            obra.save()
-            form.save_m2m()
+            novo_genero_nome = form.cleaned_data.get("novo_genero", "")
 
-            messages.success(request, "Obra enviada para aprovação do administrador.")
+            with transaction.atomic():
+                obra = form.save(commit=False)
+                obra.submetido_por = request.user
+                if e_admin(request.user):
+                    obra.estado = Obra.Estado.ATIVA
+                else:
+                    obra.estado = Obra.Estado.PENDENTE
+                obra.save()
+                form.save_m2m()
+
+                if novo_genero_nome:
+                    genero = Genero.objects.filter(
+                        nome__iexact=novo_genero_nome
+                    ).first()
+                    if genero is None:
+                        genero = Genero.objects.create(nome=novo_genero_nome)
+                    obra.generos.add(genero)
+
+            if obra.estado == Obra.Estado.ATIVA:
+                messages.success(
+                    request,
+                    "Obra publicada no catálogo com sucesso.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "Obra enviada para aprovação do administrador.",
+                )
             return redirect("visualizar_obra", obra_id=obra.id)
-
-            
-        form = ObraForm()
+    else:
+        form = ObraForm(permitir_novo_genero=True)
 
     return render(
         request,
         "sistema/adicionar_obra.html",
-        {"form": form},
+        {
+            "form": form,
+            "publica_direto": e_admin(request.user),
+        },
     )
 
 
@@ -141,8 +198,16 @@ def adicionar_obra(request):
 def editar_obra(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id)
 
+    if not pode_gerenciar_obra(request.user, obra):
+        raise PermissionDenied("Você não tem permissão para editar esta obra.")
+
     if request.method == "POST":
-        form = ObraForm(request.POST, request.FILES, instance=obra)
+        form = ObraForm(
+            request.POST,
+            request.FILES,
+            instance=obra,
+            incluir_pdf=True,
+        )
         if form.is_valid():
             form.save()
             messages.success(request, "Obra atualizada com sucesso.")
@@ -150,7 +215,7 @@ def editar_obra(request, obra_id):
                 return redirect("painel_moderacao")
             return redirect("visualizar_obra", obra_id=obra.id)
     else:
-        form = ObraForm(instance=obra)
+        form = ObraForm(instance=obra, incluir_pdf=True)
 
     return render(
         request,
@@ -162,6 +227,10 @@ def editar_obra(request, obra_id):
 @moderador_requerido
 def deletar_obra(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id)
+
+    if not pode_gerenciar_obra(request.user, obra):
+        raise PermissionDenied("Você não tem permissão para excluir esta obra.")
+
     era_pendente = obra.estado == Obra.Estado.PENDENTE
 
     if request.method == "POST":
@@ -178,16 +247,25 @@ def deletar_obra(request, obra_id):
 def visualizar_obra(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id)
 
-    if obra.estado != Obra.Estado.ATIVA:
-        pode_ver = e_moderador(request.user) or (
-            request.user.is_authenticated
-            and obra.submetido_por_id == request.user.id
+    if not pode_visualizar_obra(request.user, obra):
+        raise Http404("Obra não encontrada.")
+
+    if obra.formato == "WEBNOVEL":
+        capitulos = obra.capitulos.select_related("volume").order_by(
+            F("volume__ordem").asc(nulls_last=True),
+            F("volume_id").asc(nulls_last=True),
+            "numero",
         )
-        if not pode_ver:
-            raise Http404("Obra não encontrada.")
+        quantidade_capitulos = capitulos.count()
+        primeiro_capitulo = obra.capitulos.order_by("numero").first()
+    else:
+        capitulos = []
+        quantidade_capitulos = 0
+        primeiro_capitulo = None
 
     leitura = None
     leitura_form = None
+    capitulos_lidos_ids = set()
     estantes_usuario = None
     estantes_da_obra = None
     avaliacoes = None
@@ -204,11 +282,26 @@ def visualizar_obra(request, obra_id):
         media_notas = avaliacoes.aggregate(media=Avg("nota"))["media"]
 
     if request.user.is_authenticated:
-        leitura = Leitura.objects.filter(
-            usuario=request.user,
-            obra=obra,
-        ).first()
-        leitura_form = LeituraForm(instance=leitura or Leitura(obra=obra))
+        leitura = (
+            Leitura.objects.filter(
+                usuario=request.user,
+                obra=obra,
+            )
+            .select_related("ultimo_capitulo")
+            .first()
+        )
+        if obra.formato == "WEBNOVEL":
+            capitulos_lidos_ids = set(
+                CapituloLido.objects.filter(
+                    usuario=request.user,
+                    obra=obra,
+                ).values_list("capitulo_id", flat=True)
+            )
+            if leitura is not None:
+                leitura._total_capitulos_cache = quantidade_capitulos
+                leitura._capitulos_lidos_cache = len(capitulos_lidos_ids)
+        else:
+            leitura_form = LeituraForm(instance=leitura or Leitura(obra=obra))
         estantes_usuario = Estante.objects.filter(
             usuario=request.user
         ).order_by("nome")
@@ -239,13 +332,329 @@ def visualizar_obra(request, obra_id):
             "total_avaliacoes": total_avaliacoes,
             "minha_avaliacao": minha_avaliacao,
             "avaliacao_form": avaliacao_form,
+            "pode_gerenciar": pode_gerenciar_obra(request.user, obra),
+            "capitulos": capitulos,
+            "quantidade_capitulos": quantidade_capitulos,
+            "primeiro_capitulo": primeiro_capitulo,
+            "capitulos_lidos_ids": capitulos_lidos_ids,
+        },
+    )
+
+
+def ler_pdf(request, obra_id):
+    obra = get_object_or_404(Obra, id=obra_id)
+
+    if not pode_visualizar_obra(request.user, obra):
+        raise Http404("Obra não encontrada.")
+
+    if obra.formato != "BOOK" or not obra.arquivo_pdf:
+        raise Http404("PDF indisponível.")
+
+    try:
+        arquivo = obra.arquivo_pdf.open("rb")
+    except (FileNotFoundError, OSError):
+        raise Http404("PDF indisponível.")
+
+    resposta = FileResponse(
+        arquivo,
+        content_type="application/pdf",
+        as_attachment=False,
+        filename=f"{obra.titulo}.pdf",
+    )
+    resposta["Cache-Control"] = "private, no-store"
+    resposta["X-Content-Type-Options"] = "nosniff"
+    return resposta
+
+
+def gerenciar_volumes(request, obra_id):
+    obra = get_object_or_404(Obra, id=obra_id, formato="WEBNOVEL")
+
+    if not pode_visualizar_obra(request.user, obra):
+        raise Http404("Obra não encontrada.")
+
+    volumes = (
+        obra.volumes.annotate(qtd_capitulos=Count("capitulos"))
+        .order_by("ordem", "id")
+    )
+    capitulos_sem_volume = obra.capitulos.filter(volume__isnull=True).count()
+
+    return render(
+        request,
+        "sistema/gerenciar_volumes.html",
+        {
+            "obra": obra,
+            "volumes": volumes,
+            "capitulos_sem_volume": capitulos_sem_volume,
+            "pode_gerenciar": pode_gerenciar_obra(request.user, obra),
+        },
+    )
+
+
+@moderador_requerido
+def criar_volume(request, obra_id):
+    obra = get_object_or_404(Obra, id=obra_id, formato="WEBNOVEL")
+
+    if not pode_gerenciar_obra(request.user, obra):
+        raise PermissionDenied(
+            "Você não tem permissão para gerenciar volumes desta obra."
+        )
+
+    proxima_ordem = (
+        obra.volumes.aggregate(maior=Max("ordem"))["maior"] or 0
+    ) + 1
+    volume = Volume(obra=obra, ordem=proxima_ordem)
+
+    if request.method == "POST":
+        form = VolumeForm(request.POST, instance=volume)
+        if form.is_valid():
+            volume = form.save()
+            messages.success(
+                request,
+                f'Volume "{volume.titulo}" criado com sucesso.',
+            )
+            return redirect("gerenciar_volumes", obra_id=obra.id)
+    else:
+        form = VolumeForm(instance=volume)
+
+    return render(
+        request,
+        "sistema/form_volume.html",
+        {"form": form, "obra": obra, "volume": None},
+    )
+
+
+@moderador_requerido
+def editar_volume(request, volume_id):
+    volume = get_object_or_404(
+        Volume.objects.select_related("obra"),
+        id=volume_id,
+    )
+    obra = volume.obra
+
+    if obra.formato != "WEBNOVEL":
+        raise Http404("Volume não encontrado.")
+
+    if not pode_gerenciar_obra(request.user, obra):
+        raise PermissionDenied(
+            "Você não tem permissão para gerenciar volumes desta obra."
+        )
+
+    if request.method == "POST":
+        form = VolumeForm(request.POST, instance=volume)
+        if form.is_valid():
+            volume = form.save()
+            messages.success(
+                request,
+                f'Volume "{volume.titulo}" atualizado com sucesso.',
+            )
+            return redirect("gerenciar_volumes", obra_id=obra.id)
+    else:
+        form = VolumeForm(instance=volume)
+
+    return render(
+        request,
+        "sistema/form_volume.html",
+        {"form": form, "obra": obra, "volume": volume},
+    )
+
+
+@moderador_requerido
+def adicionar_capitulo(request, obra_id):
+    obra = get_object_or_404(Obra, id=obra_id, formato="WEBNOVEL")
+
+    if not pode_gerenciar_obra(request.user, obra):
+        raise PermissionDenied(
+            "Você não tem permissão para adicionar capítulos a esta obra."
+        )
+
+    capitulo = Capitulo(obra=obra)
+
+    if request.method == "POST":
+        form = CapituloForm(request.POST, instance=capitulo)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Capítulo adicionado com sucesso.")
+            return redirect("visualizar_obra", obra_id=obra.id)
+    else:
+        form = CapituloForm(instance=capitulo)
+
+    return render(
+        request,
+        "sistema/form_capitulo.html",
+        {"form": form, "obra": obra, "capitulo": None},
+    )
+
+
+@moderador_requerido
+def editar_capitulo(request, capitulo_id):
+    capitulo = get_object_or_404(
+        Capitulo.objects.select_related("obra"),
+        id=capitulo_id,
+    )
+    obra = capitulo.obra
+
+    if obra.formato != "WEBNOVEL":
+        raise Http404("Capítulo não encontrado.")
+
+    if not pode_gerenciar_obra(request.user, obra):
+        raise PermissionDenied(
+            "Você não tem permissão para editar este capítulo."
+        )
+
+    if request.method == "POST":
+        form = CapituloForm(request.POST, instance=capitulo)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Capítulo atualizado com sucesso.")
+            return redirect("visualizar_obra", obra_id=obra.id)
+    else:
+        form = CapituloForm(instance=capitulo)
+
+    return render(
+        request,
+        "sistema/form_capitulo.html",
+        {"form": form, "obra": obra, "capitulo": capitulo},
+    )
+
+
+@moderador_requerido
+def deletar_capitulo(request, capitulo_id):
+    capitulo = get_object_or_404(
+        Capitulo.objects.select_related("obra"),
+        id=capitulo_id,
+    )
+    obra = capitulo.obra
+
+    if obra.formato != "WEBNOVEL":
+        raise Http404("Capítulo não encontrado.")
+
+    if not pode_gerenciar_obra(request.user, obra):
+        raise PermissionDenied(
+            "Você não tem permissão para excluir este capítulo."
+        )
+
+    if request.method == "POST":
+        numero = capitulo.numero
+        capitulo.delete()
+        messages.success(request, f"Capítulo {numero} excluído com sucesso.")
+        return redirect("visualizar_obra", obra_id=obra.id)
+
+    return render(
+        request,
+        "sistema/deletar_capitulo.html",
+        {"capitulo": capitulo, "obra": obra},
+    )
+
+
+def ler_capitulo(request, capitulo_id):
+    capitulo = get_object_or_404(
+        Capitulo.objects.select_related("obra"),
+        id=capitulo_id,
+    )
+    obra = capitulo.obra
+
+    if obra.formato != "WEBNOVEL" or not pode_visualizar_obra(
+        request.user,
+        obra,
+    ):
+        raise Http404("Capítulo não encontrado.")
+
+    anterior = (
+        Capitulo.objects.filter(obra=obra, numero__lt=capitulo.numero)
+        .order_by("-numero")
+        .first()
+    )
+    proximo = (
+        Capitulo.objects.filter(obra=obra, numero__gt=capitulo.numero)
+        .order_by("numero")
+        .first()
+    )
+
+    return render(
+        request,
+        "sistema/ler_capitulo.html",
+        {
+            "obra": obra,
+            "capitulo": capitulo,
+            "anterior": anterior,
+            "proximo": proximo,
+            "quantidade_capitulos": obra.capitulos.count(),
         },
     )
 
 
 @login_required
+@require_POST
+def registrar_progresso_capitulo(request, capitulo_id):
+    capitulo = get_object_or_404(
+        Capitulo.objects.select_related("obra"),
+        id=capitulo_id,
+    )
+    obra = capitulo.obra
+
+    if obra.formato != "WEBNOVEL" or obra.estado != Obra.Estado.ATIVA:
+        raise Http404("Capítulo não encontrado.")
+
+    acao = request.POST.get("acao", "").strip()
+    if not acao and request.content_type == "application/json":
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+            acao = str(payload.get("acao", "")).strip()
+        except (ValueError, UnicodeDecodeError):
+            acao = ""
+    if acao not in ("acesso", "lido"):
+        acao = "acesso"
+
+    with transaction.atomic():
+        leitura, _ = Leitura.objects.get_or_create(
+            usuario=request.user,
+            obra=obra,
+        )
+        leitura.ultimo_capitulo = capitulo
+
+        if acao == "lido":
+            CapituloLido.objects.get_or_create(
+                usuario=request.user,
+                obra=obra,
+                capitulo=capitulo,
+            )
+
+        lidos = CapituloLido.objects.filter(
+            usuario=request.user,
+            obra=obra,
+        ).count()
+        total = obra.capitulos.count()
+        leitura.progresso_atual = lidos
+        if total > 0 and lidos >= total:
+            leitura.status = Leitura.Status.CONCLUIDO
+            if not leitura.concluido_em:
+                leitura.concluido_em = timezone.now()
+        else:
+            leitura.status = Leitura.Status.LENDO
+            leitura.concluido_em = None
+        leitura.save()
+
+    leitura._total_capitulos_cache = total
+    leitura._capitulos_lidos_cache = lidos
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "acao": acao,
+            "ultimo_capitulo_id": capitulo.id,
+            "lidos": lidos,
+            "total": total,
+            "percentual": leitura.percentual,
+        }
+    )
+
+
+@login_required
 def minhas_leituras(request):
-    base = Leitura.objects.filter(usuario=request.user).select_related("obra")
+    base = Leitura.objects.filter(usuario=request.user).select_related(
+        "obra",
+        "ultimo_capitulo",
+    )
     lendo = base.filter(status=Leitura.Status.LENDO).order_by("-atualizado_em")
     concluidas = base.filter(status=Leitura.Status.CONCLUIDO).order_by(
         "-concluido_em"
@@ -262,6 +671,13 @@ def minhas_leituras(request):
 @require_POST
 def iniciar_leitura(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id, estado=Obra.Estado.ATIVA)
+
+    if obra.formato == "WEBNOVEL":
+        messages.info(
+            request,
+            "O progresso de Web Novels é registrado automaticamente durante a leitura dos capítulos.",
+        )
+        return redirect("visualizar_obra", obra_id=obra.id)
 
     if Leitura.objects.filter(usuario=request.user, obra=obra).exists():
         messages.info(request, "Você já acompanha esta obra.")
@@ -291,10 +707,18 @@ def iniciar_leitura(request, obra_id):
 @require_POST
 def atualizar_progresso(request, leitura_id):
     leitura = get_object_or_404(
-        Leitura,
+        Leitura.objects.select_related("obra"),
         id=leitura_id,
         usuario=request.user,
     )
+
+    if leitura.obra.formato == "WEBNOVEL":
+        messages.info(
+            request,
+            "O progresso de Web Novels é atualizado automaticamente ao ler os capítulos.",
+        )
+        return redirect("visualizar_obra", obra_id=leitura.obra_id)
+
     form = LeituraForm(request.POST, instance=leitura)
 
     if form.is_valid():
@@ -563,10 +987,14 @@ def painel_moderacao(request):
     )
 
 
-@moderador_requerido
+@admin_requerido
 @require_POST
 def moderar_obra(request, obra_id):
-    obra = get_object_or_404(Obra, id=obra_id)
+    obra = get_object_or_404(
+        Obra,
+        id=obra_id,
+        estado=Obra.Estado.PENDENTE,
+    )
     acao = request.POST.get("acao")
 
     if acao == "aprovar":
@@ -610,10 +1038,4 @@ def registrar(request):
         form = RegistroForm()
 
     return render(request, "registration/registro.html", {"form": form})
-
-
-#perfis criados até entao
-# Usuario: marcelo Senha:reis1234
-# Usuario: leitor Senha: 123
-# Usuario: moderador Senha: 123
 

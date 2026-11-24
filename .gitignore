@@ -16,6 +16,9 @@ staticfiles/
 # Variáveis de ambiente
 .env
 
+# PDFs privados (armazenamento fora de midia/)
+privado/
+
 # Sistema operacional
 .DS_Store
 Thumbs.db

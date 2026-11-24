@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block titulo %}Capítulo {{ capitulo.numero }} - {{ obra.titulo }} | Gestão de Leitura{% endblock %}
+{% block atual_obras %}aria-current="page"{% endblock %}
+
+{% block conteudo %}
+<a href="{% url 'visualizar_obra' obra.id %}"
+   class="mb-8 inline-block font-medium text-indigo-400 transition-colors hover:text-indigo-300">
+    ← Voltar à obra
+</a>
+
+<article class="mx-auto w-full max-w-4xl rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-2xl md:p-10">
+    <header class="mb-8 border-b border-slate-800 pb-6">
+        <p class="text-sm font-semibold uppercase tracking-wider text-sky-400">
+            {{ obra.titulo }}
+        </p>
+        <h1 class="mt-2 text-3xl font-bold text-white md:text-4xl">
+            Capítulo {{ capitulo.numero }}: {{ capitulo.titulo }}
+        </h1>
+        <p class="mt-2 text-xs text-slate-500">
+            {{ quantidade_capitulos }} capítulo{{ quantidade_capitulos|pluralize }}
+            disponíve{{ quantidade_capitulos|pluralize:"l,is" }} para leitura.
+        </p>
+    </header>
+
+    <div class="whitespace-pre-line text-lg leading-relaxed text-slate-200">{{ capitulo.conteudo }}</div>
+    <div id="fim-capitulo" class="h-1 w-full" aria-hidden="true"></div>
+
+    <nav aria-label="Navegação entre capítulos"
+         class="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-slate-800 pt-6">
+        <div>
+            {% if anterior %}
+                <a href="{% url 'ler_capitulo' anterior.id %}"
+                   class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-sky-400 hover:text-white">
+                    ← Anterior
+                </a>
+            {% endif %}
+        </div>
+
+        <a href="{% url 'visualizar_obra' obra.id %}"
+           class="text-sm font-semibold text-slate-400 transition hover:text-slate-200">
+            Voltar à obra
+        </a>
+
+        <div>
+            {% if proximo %}
+                <a id="btn-proximo-capitulo"
+                   href="{% url 'ler_capitulo' proximo.id %}"
+                   class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-sky-400 hover:text-white">
+                    Próximo →
+                </a>
+            {% endif %}
+        </div>
+    </nav>
+</article>
+
+{% if user.is_authenticated and obra.estado == 'ATIVA' %}
+<form id="form-progresso-csrf" class="hidden">{% csrf_token %}</form>
+<script>
+(function () {
+    const url = "{% url 'registrar_progresso_capitulo' capitulo.id %}";
+    const csrfInput = document.querySelector("#form-progresso-csrf input[name='csrfmiddlewaretoken']");
+    const csrfToken = csrfInput ? csrfInput.value : "";
+    let marcadoLido = false;
+
+    function enviarProgresso(acao, keepalive) {
+        if (!csrfToken) return;
+        const body = new URLSearchParams({ acao: acao });
+        fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            keepalive: Boolean(keepalive),
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": csrfToken,
+            },
+            body: body.toString(),
+        }).catch(function () {});
+    }
+
+    function marcarLido(keepalive) {
+        if (marcadoLido) return;
+        marcadoLido = true;
+        enviarProgresso("lido", keepalive);
+    }
+
+    // Registra automaticamente o último capítulo acessado ao abrir a página.
+    enviarProgresso("acesso", false);
+
+    // Marca como lido ao chegar ao fim do texto.
+    const sentinela = document.getElementById("fim-capitulo");
+    if (sentinela && "IntersectionObserver" in window) {
+        const observer = new IntersectionObserver(function (entries) {
+            if (entries.some(function (e) { return e.isIntersecting; })) {
+                marcarLido(false);
+                observer.disconnect();
+            }
+        }, { threshold: 0.1 });
+        observer.observe(sentinela);
+    }
+
+    // Marca como lido ao clicar em "Próximo".
+    const btnProximo = document.getElementById("btn-proximo-capitulo");
+    if (btnProximo) {
+        btnProximo.addEventListener("click", function () {
+            marcarLido(true);
+        });
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

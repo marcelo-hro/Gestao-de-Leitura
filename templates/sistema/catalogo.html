@@ -95,7 +95,7 @@
                     Total: <strong class="text-indigo-400">{{ obra.total_de_unidades }}</strong>
                 </span>
 
-                {% if pode_moderar %}
+                {% if pode_administrar %}
                     <div class="flex gap-2">
                         <a href="{% url 'editar_obra' obra.id %}"
                            class="rounded bg-slate-700 px-3 py-1.5 font-medium text-slate-200 transition hover:bg-slate-600">
@@ -114,11 +114,9 @@
             {% if termo %}
                 Nenhuma obra encontrada para "{{ termo }}".
             {% else %}
-                Nenhuma obra cadastrada ainda.
-                {% if user.is_authenticated %}
-                    Clique em "Adicionar Obra" para começar!
-                {% else %}
-                    Entre para cadastrar a primeira obra.
+                Nenhuma obra ativa no catálogo ainda.
+                {% if pode_moderar %}
+                    Clique em "Adicionar Obra" para enviar a primeira.
                 {% endif %}
             {% endif %}
         </p>

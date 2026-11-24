@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block titulo %}Importação concluída - {{ obra.titulo }} | Gestão de Leitura{% endblock %}
+{% block atual_obras %}aria-current="page"{% endblock %}
+
+{% block conteudo %}
+<div class="mx-auto w-full max-w-3xl rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+    <h1 class="text-xl font-bold text-slate-100">Importação concluída</h1>
+    <p class="mt-1 text-xs text-slate-400">Web Novel: <span class="font-semibold text-sky-300">{{ obra.titulo }}</span></p>
+
+    <dl class="mt-6 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        <div class="rounded-lg border border-slate-700 p-3"><dt class="text-slate-400">Detectados</dt><dd class="text-lg font-bold text-white">{{ total }}</dd></div>
+        <div class="rounded-lg border border-emerald-500/40 p-3"><dt class="text-slate-400">Capítulos criados</dt><dd class="text-lg font-bold text-emerald-300" id="qtd-importados">{{ resultado.importados }}</dd></div>
+        <div class="rounded-lg border border-sky-500/40 p-3"><dt class="text-slate-400">Existentes organizados</dt><dd class="text-lg font-bold text-sky-300" id="qtd-organizados">{{ resultado.organizados|default:0 }}</dd></div>
+        <div class="rounded-lg border border-amber-500/40 p-3"><dt class="text-slate-400">Ignorados</dt><dd class="text-lg font-bold text-amber-300" id="qtd-ignorados">{{ resultado.ignorados }}</dd></div>
+    </dl>
+
+    {% if resultado.motivos %}
+        <h2 class="mt-6 text-sm font-semibold uppercase tracking-wider text-slate-400">Motivos</h2>
+        <ul class="mt-2 space-y-3 text-sm">
+            {% for motivo, quantidade, exemplos in resultado.motivos %}
+                <li class="rounded-lg border border-slate-700 p-3">
+                    <p class="font-semibold text-slate-100">{{ motivo }}: {{ quantidade }}</p>
+                    <p class="mt-1 text-xs text-slate-400">{{ exemplos|join:"; " }}{% if quantidade > exemplos|length %}; …{% endif %}</p>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {% if obra.estado != 'ATIVA' %}
+        <p class="mt-6 text-sm text-slate-400">A obra ainda não está ativa: os capítulos ficarão públicos quando ela for aprovada.</p>
+    {% endif %}
+
+    <a href="{% url 'visualizar_obra' obra.id %}"
+       class="mt-8 inline-block rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-sky-500">
+        Voltar à obra
+    </a>
+</div>
+{% endblock %}

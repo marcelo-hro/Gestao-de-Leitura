@@ -1,0 +1,19 @@
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var formato = document.getElementById("id_formato");
+        var grupo = document.querySelector('[data-campo="arquivo_pdf"]');
+
+        if (!formato || !grupo) {
+            return;
+        }
+
+        function atualizarCampoPdf() {
+            var livro = formato.value === "BOOK";
+            var temErro = grupo.dataset.temErro === "1";
+            grupo.classList.toggle("hidden", !livro && !temErro);
+        }
+
+        formato.addEventListener("change", atualizarCampoPdf);
+        atualizarCampoPdf();
+    });
+</script>

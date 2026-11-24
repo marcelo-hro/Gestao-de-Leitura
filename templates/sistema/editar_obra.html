@@ -2,7 +2,10 @@
 
 {% block titulo %}Editar Obra - {{ obra.titulo }} | Gestão de Leitura{% endblock %}
 {% block atual_obras %}aria-current="page"{% endblock %}
-{% block estilos %}{% include "sistema/_estilos_form_obra.html" %}{% endblock %}
+{% block estilos %}
+    {% include "sistema/_estilos_form_obra.html" %}
+    {% include "sistema/_script_form_obra.html" %}
+{% endblock %}
 
 {% block conteudo %}
 <div class="mx-auto w-full max-w-xl rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
@@ -30,7 +33,9 @@
         {% endif %}
 
         {% for field in form %}
-            <div class="space-y-1.5">
+            <div class="space-y-1.5"
+                 data-campo="{{ field.name }}"
+                 {% if field.name == 'arquivo_pdf' and field.errors %}data-tem-erro="1"{% endif %}>
                 <label for="{{ field.id_for_label }}"
                        class="block text-xs font-semibold uppercase tracking-wider text-slate-300">
                     {{ field.label }}

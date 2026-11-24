@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block titulo %}Importar capítulos de EPUB - {{ obra.titulo }} | Gestão de Leitura{% endblock %}
+{% block atual_obras %}aria-current="page"{% endblock %}
+
+{% block conteudo %}
+<div class="mx-auto w-full max-w-3xl rounded-xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+    <div class="mb-6 border-b border-slate-800 pb-4">
+        <h1 class="text-xl font-bold text-slate-100">Importar capítulos de EPUB</h1>
+        <p class="text-xs text-slate-400">
+            Web Novel: <span class="font-semibold text-sky-300">{{ obra.titulo }}</span>
+        </p>
+    </div>
+
+    {% if erro %}
+        <div class="mb-5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200" role="alert">
+            {{ erro }}
+        </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" class="space-y-5">
+        {% csrf_token %}
+        <div class="space-y-1.5">
+            <label for="id_arquivo_epub" class="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                Arquivo EPUB
+            </label>
+            <input type="file" name="arquivo_epub" id="id_arquivo_epub" accept=".epub,application/epub+zip" required
+                   class="block w-full text-sm text-slate-300">
+            <p class="text-xs text-slate-500">
+                Tamanho máximo: {{ limite_mb }} MB. Nenhum capítulo é criado agora: você verá uma prévia
+                para revisar números, títulos e conflitos antes de confirmar. Capítulos já cadastrados são preservados.
+            </p>
+        </div>
+
+        <div class="mt-8 flex items-center justify-between border-t border-slate-800 pt-6">
+            <a href="{% url 'visualizar_obra' obra.id %}" class="text-sm font-medium text-slate-400 hover:text-slate-200">
+                ← Voltar à obra
+            </a>
+            <button type="submit"
+                    class="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-500">
+                Gerar prévia
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

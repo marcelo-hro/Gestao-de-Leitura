@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block titulo %}Prévia da importação - {{ obra.titulo }} | Gestão de Leitura{% endblock %}
+{% block atual_obras %}aria-current="page"{% endblock %}
+
+{% block conteudo %}
+<div class="mx-auto w-full max-w-6xl rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-2xl md:p-8">
+    <div class="mb-6 border-b border-slate-800 pb-4">
+        <h1 class="text-xl font-bold text-slate-100">Prévia da importação de EPUB</h1>
+        <p class="text-xs text-slate-400">
+            Web Novel: <span class="font-semibold text-sky-300">{{ obra.titulo }}</span>
+            · expira em {{ previa.expira_em|date:"d/m/Y H:i" }}
+        </p>
+        <dl class="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+            <div class="rounded-lg border border-slate-700 p-3"><dt class="text-slate-400">Detectados</dt><dd class="text-lg font-bold text-white">{{ previa.total_detectado }}</dd></div>
+            <div class="rounded-lg border border-slate-700 p-3"><dt class="text-slate-400">Selecionados</dt><dd class="text-lg font-bold text-white">{{ selecionados }}</dd></div>
+            <div class="rounded-lg border border-slate-700 p-3"><dt class="text-slate-400">Conflitos com existentes</dt><dd class="text-lg font-bold {% if conflitos %}text-amber-300{% else %}text-white{% endif %}">{{ conflitos }}</dd></div>
+            <div class="rounded-lg border border-slate-700 p-3"><dt class="text-slate-400">Já cadastrados na obra</dt><dd class="text-lg font-bold text-white">{{ existentes }}</dd></div>
+        </dl>
+    </div>
+
+    {% if previa.avisos %}
+        <div class="mb-5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="status">
+            <ul class="list-disc space-y-1 pl-5">
+                {% for aviso in previa.avisos %}<li>{{ aviso }}</li>{% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <form method="POST" action="{% url 'salvar_previa_epub' obra.id previa.token %}">
+        {% csrf_token %}
+        <p class="mb-3 text-xs text-slate-400">
+            Capítulos com número já cadastrado serão ignorados (nada é sobrescrito). As alterações desta página
+            são salvas ao mudar de página ou confirmar.
+        </p>
+        <div class="mb-3 flex flex-wrap items-center gap-2 text-xs">
+            <button type="submit" name="massa" value="todos" class="rounded border border-slate-600 px-3 py-1 text-slate-300 hover:text-white">Marcar todos</button>
+            <button type="submit" name="massa" value="nenhum" class="rounded border border-slate-600 px-3 py-1 text-slate-300 hover:text-white">Desmarcar todos</button>
+
+            <span class="mx-1 text-slate-600">|</span>
+            <label for="volume_lote" class="text-slate-400">Volume em lote:</label>
+            <select id="volume_lote" name="volume_lote"
+                    class="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-slate-100">
+                {% for op in opcoes_volume %}
+                    <option value="{{ op.valor }}">{{ op.rotulo }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" name="massa" value="aplicar_volume"
+                    class="rounded border border-sky-500/50 px-3 py-1 font-semibold text-sky-300 hover:bg-sky-500/10">
+                Aplicar aos selecionados
+            </button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="text-xs uppercase tracking-wider text-slate-400">
+                    <tr>
+                        <th class="p-2">Importar</th>
+                        <th class="p-2">Número</th>
+                        <th class="p-2">Volume</th>
+                        <th class="p-2">Título / trecho</th>
+                        <th class="p-2">Situação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for linha in linhas %}
+                    <tr class="border-t border-slate-800 align-top">
+                        <td class="p-2">
+                            <input type="hidden" name="itens" value="{{ linha.idx }}">
+                            <input type="checkbox" name="sel_{{ linha.idx }}" id="sel_{{ linha.idx }}" {% if linha.selecionado %}checked{% endif %}
+                                   aria-label="Importar {{ linha.titulo }}">
+                        </td>
+                        <td class="p-2">
+                            <input type="number" min="1" name="num_{{ linha.idx }}" value="{{ linha.numero|default_if_none:'' }}"
+                                   class="w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-slate-100"
+                                   aria-label="Número de {{ linha.titulo }}">
+                            {% if linha.numero_detectado %}<p class="mt-1 text-xs text-slate-500">no título: {{ linha.numero_detectado }}</p>{% endif %}
+                        </td>
+                        <td class="p-2">
+                            <select name="vol_{{ linha.idx }}"
+                                    aria-label="Volume de {{ linha.titulo }}"
+                                    class="w-44 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100">
+                                {% for op in opcoes_volume %}
+                                    <option value="{{ op.valor }}" {% if linha.volume_selecionado == op.valor %}selected{% endif %}>
+                                        {{ op.rotulo }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if linha.volume %}<p class="mt-1 text-xs text-sky-400">detectado: {{ linha.volume }}</p>{% endif %}
+                        </td>
+                        <td class="p-2">
+                            <label for="sel_{{ linha.idx }}" class="font-medium text-slate-100">{{ linha.titulo }}</label>
+                            <p class="mt-1 text-xs text-slate-400">{{ linha.trecho|default:"(sem texto)" }}</p>
+                        </td>
+                        <td class="p-2 text-xs">
+                            {% if linha.conflito %}
+                                {% if linha.existente_volume %}
+                                    <p class="text-amber-300">Já existe capítulo {{ linha.numero }} (volume: {{ linha.existente_volume }}) — será mantido</p>
+                                {% elif linha.duvidosa %}
+                                    <p class="text-rose-300">Correspondência duvidosa — revisar título (no banco: “{{ linha.existente_titulo }}”)</p>
+                                {% else %}
+                                    <p class="text-amber-300">Já existe capítulo {{ linha.numero }} sem volume</p>
+                                {% endif %}
+                            {% endif %}
+                            {% if linha.duplicado %}<p class="text-amber-300">Número repetido na seleção</p>{% endif %}
+                            {% for alerta in linha.alertas %}<p class="text-slate-400">{{ alerta }}</p>{% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if pagina.has_other_pages %}
+            <nav aria-label="Páginas da prévia" class="mt-4 flex flex-wrap items-center gap-2 text-sm">
+                {% if pagina.has_previous %}
+                    <button type="submit" name="ir_para" value="{{ pagina.previous_page_number }}" class="rounded border border-slate-700 px-3 py-1 text-slate-300">← Anterior</button>
+                {% endif %}
+                <span class="text-slate-400">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+                {% if pagina.has_next %}
+                    <button type="submit" name="ir_para" value="{{ pagina.next_page_number }}" class="rounded border border-slate-700 px-3 py-1 text-slate-300">Próxima →</button>
+                {% endif %}
+            </nav>
+        {% endif %}
+        <input type="hidden" name="pagina_atual" value="{{ pagina.number }}">
+
+        <label class="mt-5 flex items-start gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 p-3 text-sm text-sky-100">
+            <input type="checkbox" name="organizar_sem_volume" value="1" class="mt-1">
+            <span>
+                <strong>Organizar capítulos já cadastrados que estão sem volume</strong>
+                {% if sem_volume_existentes %}
+                    ({{ sem_volume_existentes }} capítulo{{ sem_volume_existentes|pluralize }} sem volume na obra).
+                {% endif %}
+                Preserva ID, texto, título, numeração e volumes já atribuídos; correspondências duvidosas são ignoradas para revisão.
+            </span>
+        </label>
+
+        {% if previa.ambiguidade %}
+            <label class="mt-5 flex items-start gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-100">
+                <input type="checkbox" name="revisei_ambiguidade" value="1" class="mt-1">
+                A separação dos capítulos é ambígua. Revisei a prévia e quero importar mesmo assim.
+            </label>
+        {% endif %}
+
+        <div class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-6">
+            <button type="submit" name="acao" value="cancelar" class="text-sm font-medium text-slate-400 hover:text-slate-200">
+                Cancelar importação
+            </button>
+            <button type="submit" name="acao" value="confirmar"
+                    class="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-500">
+                Confirmar importação
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -8,7 +8,7 @@
     <div>
         <h1 class="text-3xl font-bold text-amber-300">Moderação de Obras</h1>
         <p class="mt-1 text-sm text-slate-400">
-            Aprove ou rejeite as obras enviadas pelos leitores.
+            Acompanhe as obras pendentes. Somente administradores podem aprovar ou rejeitar.
         </p>
     </div>
 
@@ -83,16 +83,19 @@
                                class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-indigo-400">
                                 Ver detalhes
                             </a>
-                            <a href="{% url 'editar_obra' obra.id %}"
-                               class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-amber-400">
-                                Editar
-                            </a>
-                            <a href="{% url 'deletar_obra' obra.id %}"
-                               class="rounded-lg border border-red-800/50 bg-red-900/30 px-4 py-2 text-sm font-medium text-red-300 transition hover:bg-red-800/60">
-                                Eliminar
-                            </a>
+                            {% if pode_administrar or obra.submetido_por_id == user.id %}
+                                <a href="{% url 'editar_obra' obra.id %}"
+                                   class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-amber-400">
+                                    Editar
+                                </a>
+                                <a href="{% url 'deletar_obra' obra.id %}"
+                                   class="rounded-lg border border-red-800/50 bg-red-900/30 px-4 py-2 text-sm font-medium text-red-300 transition hover:bg-red-800/60">
+                                    Eliminar
+                                </a>
+                            {% endif %}
                         </div>
 
+                        {% if pode_administrar %}
                         <form method="post" action="{% url 'moderar_obra' obra.id %}" class="mt-5 space-y-3 border-t border-slate-800 pt-5">
                             {% csrf_token %}
 
@@ -115,6 +118,11 @@
                                 </button>
                             </div>
                         </form>
+                        {% else %}
+                            <p class="mt-5 border-t border-slate-800 pt-5 text-xs text-slate-500">
+                                A aprovação ou rejeição é feita pelo administrador.
+                            </p>
+                        {% endif %}
                     </div>
                 </div>
             </article>

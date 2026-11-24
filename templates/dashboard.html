@@ -85,7 +85,11 @@
                                  style="width: {{ leitura.percentual }}%"></div>
                         </div>
                         <p class="mt-1 text-xs text-slate-400">
-                            {{ leitura.percentual }}% · {{ leitura.progresso_atual }}/{{ leitura.obra.total_de_unidades }}
+                            {% if leitura.obra.formato == 'WEBNOVEL' and leitura.total_capitulos_disponiveis %}
+                                {{ leitura.capitulos_lidos_total }} de {{ leitura.total_capitulos_disponiveis }} capítulos lidos ({{ leitura.percentual }}%)
+                            {% else %}
+                                {{ leitura.percentual }}% · {{ leitura.progresso_atual }}/{{ leitura.obra.total_de_unidades }}
+                            {% endif %}
                         </p>
                     </div>
                 </a>

@@ -20,10 +20,10 @@
     </div>
 
     <div class="mb-6 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-xs text-indigo-200">
-        {% if pode_moderar %}
-            Como moderador(a), a obra será publicada imediatamente no catálogo.
+        {% if publica_direto %}
+            A obra será publicada imediatamente no catálogo.
         {% else %}
-            A obra será enviada para moderação e ficará visível no catálogo após a aprovação.
+            A obra será enviada para aprovação do administrador e ficará visível no catálogo após a aprovação.
         {% endif %}
     </div>
 
@@ -32,7 +32,9 @@
 
         {% if form.non_field_errors %}
             <div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-                {{ form.non_field_errors.0 }}
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
             </div>
         {% endif %}
 
@@ -50,7 +52,9 @@
                 {% endif %}
 
                 {% if field.errors %}
-                    <p class="mt-1 text-xs text-rose-400">{{ field.errors.0 }}</p>
+                    {% for error in field.errors %}
+                        <p class="mt-1 text-xs text-rose-400">{{ error }}</p>
+                    {% endfor %}
                 {% endif %}
             </div>
         {% endfor %}

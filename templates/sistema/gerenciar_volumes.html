@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block titulo %}Gerenciar volumes - {{ obra.titulo }} | Gestão de Leitura{% endblock %}
+{% block atual_obras %}aria-current="page"{% endblock %}
+
+{% block conteudo %}
+<div class="mx-auto w-full max-w-4xl rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-2xl md:p-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div>
+            <a href="{% url 'visualizar_obra' obra.id %}"
+               class="text-xs font-medium text-indigo-400 transition hover:text-indigo-300">
+                ← Voltar à obra
+            </a>
+            <h1 class="mt-2 text-2xl font-bold text-slate-100">Volumes</h1>
+            <p class="text-sm text-slate-400">
+                Web Novel: <span class="font-semibold text-sky-300">{{ obra.titulo }}</span>
+            </p>
+        </div>
+
+        {% if pode_gerenciar %}
+            <a href="{% url 'criar_volume' obra.id %}"
+               class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500">
+                + Criar volume
+            </a>
+        {% endif %}
+    </div>
+
+    {% if volumes %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="text-xs uppercase tracking-wider text-slate-400">
+                    <tr class="border-b border-slate-800">
+                        <th class="px-3 py-2">Ordem</th>
+                        <th class="px-3 py-2">Título</th>
+                        <th class="px-3 py-2">Capítulos</th>
+                        {% if pode_gerenciar %}
+                            <th class="px-3 py-2 text-right">Ações</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for volume in volumes %}
+                        <tr>
+                            <td class="px-3 py-3 font-mono text-slate-300">{{ volume.ordem }}</td>
+                            <td class="px-3 py-3 font-medium text-slate-100">{{ volume.titulo }}</td>
+                            <td class="px-3 py-3 text-slate-300">
+                                {{ volume.qtd_capitulos }} capítulo{{ volume.qtd_capitulos|pluralize }}
+                            </td>
+                            {% if pode_gerenciar %}
+                                <td class="px-3 py-3 text-right">
+                                    <a href="{% url 'editar_volume' volume.id %}"
+                                       class="font-semibold text-sky-300 hover:text-sky-200">
+                                        Editar
+                                    </a>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="rounded-lg border border-dashed border-slate-700 bg-slate-950/40 p-8 text-center">
+            <p class="text-sm font-semibold text-slate-200">
+                Nenhum volume cadastrado nesta obra ainda.
+            </p>
+            {% if pode_gerenciar %}
+                <p class="mt-1 text-xs text-slate-400">
+                    Crie volumes como “Volume 1”, “Volume 2” ou “Volume Bônus” para organizar os capítulos.
+                </p>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {% if capitulos_sem_volume %}
+        <p class="mt-5 text-xs text-slate-400">
+            Capítulos ainda sem volume: <strong class="text-slate-200">{{ capitulos_sem_volume }}</strong>.
+        </p>
+    {% endif %}
+</div>
+{% endblock %}

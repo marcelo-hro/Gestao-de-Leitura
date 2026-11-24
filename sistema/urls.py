@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from sistema import views
+from sistema import views, views_epub
 from sistema.forms import LoginForm
 
 urlpatterns = [
@@ -74,5 +74,61 @@ urlpatterns = [
         "visualizar_obra/<int:obra_id>/",
         views.visualizar_obra,
         name="visualizar_obra",
+    ),
+    path("ler_pdf/<int:obra_id>/", views.ler_pdf, name="ler_pdf"),
+    path(
+        "obras/<int:obra_id>/volumes/",
+        views.gerenciar_volumes,
+        name="gerenciar_volumes",
+    ),
+    path(
+        "obras/<int:obra_id>/volumes/novo/",
+        views.criar_volume,
+        name="criar_volume",
+    ),
+    path(
+        "volumes/<int:volume_id>/editar/",
+        views.editar_volume,
+        name="editar_volume",
+    ),
+    path(
+        "obras/<int:obra_id>/capitulos/novo/",
+        views.adicionar_capitulo,
+        name="adicionar_capitulo",
+    ),
+    path(
+        "obras/<int:obra_id>/capitulos/importar-epub/",
+        views_epub.importar_epub,
+        name="importar_epub",
+    ),
+    path(
+        "obras/<int:obra_id>/capitulos/importar-epub/<uuid:token>/",
+        views_epub.previa_importacao_epub,
+        name="previa_importacao_epub",
+    ),
+    path(
+        "obras/<int:obra_id>/capitulos/importar-epub/<uuid:token>/salvar/",
+        views_epub.salvar_previa_epub,
+        name="salvar_previa_epub",
+    ),
+    path(
+        "capitulos/<int:capitulo_id>/ler/",
+        views.ler_capitulo,
+        name="ler_capitulo",
+    ),
+    path(
+        "capitulos/<int:capitulo_id>/progresso/",
+        views.registrar_progresso_capitulo,
+        name="registrar_progresso_capitulo",
+    ),
+    path(
+        "capitulos/<int:capitulo_id>/editar/",
+        views.editar_capitulo,
+        name="editar_capitulo",
+    ),
+    path(
+        "capitulos/<int:capitulo_id>/deletar/",
+        views.deletar_capitulo,
+        name="deletar_capitulo",
     ),
 ]

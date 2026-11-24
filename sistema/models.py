@@ -1,8 +1,17 @@
+import uuid
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import (
+    FileExtensionValidator,
+    MaxValueValidator,
+    MinValueValidator,
+)
 from django.db import models
 from django.utils import timezone
+
+from .storage import ArmazenamentoPdfPrivado
+from .validators import validar_assinatura_pdf, validar_tamanho_pdf
 
 
 class Perfil(models.Model):
@@ -64,6 +73,22 @@ class Obra(models.Model):
     total_de_unidades = models.PositiveIntegerField("Total de Páginas/Capítulos")
     generos = models.ManyToManyField(Genero, verbose_name="Gêneros")
     imagem = models.ImageField("Imagem", upload_to="obras/", null=True, blank=True)
+    arquivo_pdf = models.FileField(
+        "Arquivo PDF",
+        upload_to="obras/pdf/%Y/%m/",
+        storage=ArmazenamentoPdfPrivado(),
+        null=True,
+        blank=True,
+        max_length=255,
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=["pdf"],
+                message="Envie um arquivo com extensão .pdf.",
+            ),
+            validar_assinatura_pdf,
+            validar_tamanho_pdf,
+        ],
+    )
     estado = models.CharField(
         "Estado",
         max_length=10,
@@ -87,6 +112,146 @@ class Obra(models.Model):
 
     def __str__(self):
         return f"{self.titulo} ({self.get_formato_display()})"
+
+
+class Volume(models.Model):
+    obra = models.ForeignKey(
+        Obra,
+        on_delete=models.CASCADE,
+        related_name="volumes",
+        verbose_name="Obra",
+    )
+    titulo = models.CharField("Título", max_length=150)
+    ordem = models.PositiveIntegerField(
+        "Ordem de exibição",
+        default=1,
+        validators=[MinValueValidator(1)],
+    )
+
+    class Meta:
+        verbose_name = "Volume"
+        verbose_name_plural = "Volumes"
+        ordering = ["ordem", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["obra", "titulo"],
+                name="volume_titulo_unico_por_obra",
+            ),
+        ]
+
+    def __str__(self):
+        return self.titulo
+
+    def clean(self):
+        super().clean()
+        if self.obra_id and self.obra.formato != "WEBNOVEL":
+            raise ValidationError(
+                {
+                    "obra": (
+                        "Volumes só podem ser vinculados a obras do "
+                        "formato Web Novel."
+                    )
+                }
+            )
+
+
+class Capitulo(models.Model):
+    obra = models.ForeignKey(
+        Obra,
+        on_delete=models.CASCADE,
+        related_name="capitulos",
+        verbose_name="Obra",
+    )
+    numero = models.PositiveIntegerField(
+        "Número",
+        validators=[MinValueValidator(1)],
+    )
+    titulo = models.CharField("Título", max_length=255)
+    conteudo = models.TextField("Conteúdo")
+    volume = models.ForeignKey(
+        Volume,
+        on_delete=models.SET_NULL,
+        related_name="capitulos",
+        verbose_name="Volume",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        verbose_name = "Capítulo"
+        verbose_name_plural = "Capítulos"
+        ordering = ["numero"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["obra", "numero"],
+                name="capitulo_numero_unico_por_obra",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(numero__gt=0),
+                name="capitulo_numero_positivo",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.obra.titulo} - Capítulo {self.numero}"
+
+    def clean(self):
+        super().clean()
+        if self.obra_id and self.obra.formato != "WEBNOVEL":
+            raise ValidationError(
+                {
+                    "obra": (
+                        "Capítulos só podem ser vinculados a obras do "
+                        "formato Web Novel."
+                    )
+                }
+            )
+        if self.volume_id and self.obra_id and self.volume.obra_id != self.obra_id:
+            raise ValidationError(
+                {
+                    "volume": "O volume escolhido precisa pertencer à mesma obra."
+                }
+            )
+
+
+class PreviaImportacaoEpub(models.Model):
+    token = models.UUIDField(
+        "Token",
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="previas_importacao_epub",
+        verbose_name="Usuário",
+    )
+    obra = models.ForeignKey(
+        Obra,
+        on_delete=models.CASCADE,
+        related_name="previas_importacao_epub",
+        verbose_name="Obra",
+    )
+    arquivo = models.CharField("Arquivo da prévia", max_length=255)
+    selecao = models.JSONField("Seleção", default=dict, blank=True)
+    avisos = models.JSONField("Avisos", default=list, blank=True)
+    ambiguidade = models.BooleanField("Ambiguidade", default=False)
+    total_detectado = models.PositiveIntegerField("Total detectado", default=0)
+    criado_em = models.DateTimeField("Criada em", auto_now_add=True)
+    expira_em = models.DateTimeField("Expira em", db_index=True)
+
+    class Meta:
+        verbose_name = "Prévia de importação de EPUB"
+        verbose_name_plural = "Prévias de importação de EPUB"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"Prévia {self.token} - {self.obra.titulo}"
+
+    @property
+    def expirada(self):
+        return self.expira_em <= timezone.now()
 
 
 class Leitura(models.Model):
@@ -113,6 +278,14 @@ class Leitura(models.Model):
         default=Status.LENDO,
     )
     progresso_atual = models.PositiveIntegerField("Progresso atual", default=0)
+    ultimo_capitulo = models.ForeignKey(
+        Capitulo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leituras_ultimo_acesso",
+        verbose_name="Último capítulo acessado",
+    )
     iniciado_em = models.DateTimeField("Iniciado em", auto_now_add=True)
     atualizado_em = models.DateTimeField("Atualizado em", auto_now=True)
     concluido_em = models.DateTimeField("Concluído em", null=True, blank=True)
@@ -127,7 +300,30 @@ class Leitura(models.Model):
         return f"{self.usuario.username} - {self.obra.titulo}"
 
     @property
+    def total_capitulos_disponiveis(self):
+        if hasattr(self, "_total_capitulos_cache"):
+            return self._total_capitulos_cache
+        if self.obra.formato == "WEBNOVEL":
+            return self.obra.capitulos.count()
+        return self.obra.total_de_unidades
+
+    @property
+    def capitulos_lidos_total(self):
+        if hasattr(self, "_capitulos_lidos_cache"):
+            return self._capitulos_lidos_cache
+        if self.obra.formato == "WEBNOVEL":
+            return CapituloLido.objects.filter(
+                usuario_id=self.usuario_id,
+                obra_id=self.obra_id,
+            ).count()
+        return self.progresso_atual
+
+    @property
     def percentual(self):
+        if self.obra.formato == "WEBNOVEL":
+            total_disp = self.total_capitulos_disponiveis
+            if total_disp > 0:
+                return min(100, round(self.capitulos_lidos_total * 100 / total_disp))
         total = self.obra.total_de_unidades
         if not total:
             return 100 if self.status == self.Status.CONCLUIDO else 0
@@ -136,6 +332,9 @@ class Leitura(models.Model):
     def clean(self):
         super().clean()
         if not self.obra_id:
+            return
+
+        if self.obra.formato == "WEBNOVEL":
             return
 
         total = (
@@ -154,16 +353,75 @@ class Leitura(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        if self.progresso_atual >= self.obra.total_de_unidades:
-            self.progresso_atual = self.obra.total_de_unidades
-            self.status = self.Status.CONCLUIDO
-            if not self.concluido_em:
-                self.concluido_em = timezone.now()
+        if self.obra.formato == "WEBNOVEL":
+            total_disp = self.obra.capitulos.count()
+            if total_disp > 0:
+                if self.progresso_atual >= total_disp:
+                    self.progresso_atual = total_disp
+                    self.status = self.Status.CONCLUIDO
+                    if not self.concluido_em:
+                        self.concluido_em = timezone.now()
+                else:
+                    self.status = self.Status.LENDO
+                    self.concluido_em = None
+            else:
+                if self.obra.total_de_unidades and self.progresso_atual >= self.obra.total_de_unidades:
+                    self.progresso_atual = self.obra.total_de_unidades
+                    self.status = self.Status.CONCLUIDO
+                    if not self.concluido_em:
+                        self.concluido_em = timezone.now()
+                else:
+                    self.status = self.Status.LENDO
+                    self.concluido_em = None
         else:
-            self.status = self.Status.LENDO
-            self.concluido_em = None
+            if self.progresso_atual >= self.obra.total_de_unidades:
+                self.progresso_atual = self.obra.total_de_unidades
+                self.status = self.Status.CONCLUIDO
+                if not self.concluido_em:
+                    self.concluido_em = timezone.now()
+            else:
+                self.status = self.Status.LENDO
+                self.concluido_em = None
 
         super().save(*args, **kwargs)
+
+
+class CapituloLido(models.Model):
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="capitulos_lidos",
+        verbose_name="Usuário",
+    )
+    obra = models.ForeignKey(
+        Obra,
+        on_delete=models.CASCADE,
+        related_name="capitulos_lidos",
+        verbose_name="Obra",
+    )
+    capitulo = models.ForeignKey(
+        Capitulo,
+        on_delete=models.CASCADE,
+        related_name="leituras_concluidas",
+        verbose_name="Capítulo",
+    )
+    lido_em = models.DateTimeField("Lido em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Capítulo lido"
+        verbose_name_plural = "Capítulos lidos"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["usuario", "capitulo"],
+                name="capitulo_lido_unico_por_usuario",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["usuario", "obra"], name="cap_lido_usr_obra_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.usuario.username} - {self.capitulo}"
 
 
 class Estante(models.Model):

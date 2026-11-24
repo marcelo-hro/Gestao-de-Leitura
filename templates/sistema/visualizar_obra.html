@@ -68,6 +68,11 @@
                     {% if obra.formato == 'BOOK' %}Total de Páginas{% else %}Total de Capítulos{% endif %}
                 </h3>
                 <p class="text-xl font-medium text-slate-200">{{ obra.total_de_unidades }}</p>
+                {% if obra.formato == 'WEBNOVEL' %}
+                    <p class="mt-1 text-xs text-slate-500">
+                        Disponíveis para leitura: {{ quantidade_capitulos }} de {{ obra.total_de_unidades }} capítulos.
+                    </p>
+                {% endif %}
             </div>
 
             <div>
@@ -96,10 +101,175 @@
                 </p>
             </div>
 
+            {% if obra.formato == 'BOOK' and obra.arquivo_pdf %}
+                <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                                Leitura em PDF
+                            </h3>
+                            <p class="mt-1 text-sm text-slate-300">
+                                Abra o livro para ler no navegador.
+                            </p>
+                        </div>
+
+                        <a href="{% url 'ler_pdf' obra.id %}"
+                           target="_blank"
+                           rel="noopener"
+                           class="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500">
+                            Ler livro
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if obra.formato == 'WEBNOVEL' %}
+                <section aria-labelledby="capitulos" class="rounded-lg border border-sky-500/30 bg-sky-500/5 p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 id="capitulos" class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                                Capítulos
+                            </h2>
+                            <p class="mt-1 text-sm text-slate-300">
+                                {{ quantidade_capitulos }} de {{ obra.total_de_unidades }} capítulos disponíveis.
+                            </p>
+                        </div>
+
+                        {% if pode_gerenciar %}
+                            <div class="flex flex-wrap gap-2">
+                                <a href="{% url 'gerenciar_volumes' obra.id %}"
+                                   class="rounded-lg border border-sky-500/50 px-4 py-2 text-sm font-semibold text-sky-300 transition hover:bg-sky-500/10">
+                                    Gerenciar volumes
+                                </a>
+                                <a href="{% url 'adicionar_capitulo' obra.id %}"
+                                   class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500">
+                                    + Adicionar capítulo
+                                </a>
+                                <a href="{% url 'importar_epub' obra.id %}"
+                                   class="rounded-lg border border-sky-500/50 px-4 py-2 text-sm font-semibold text-sky-300 transition hover:bg-sky-500/10">
+                                    Importar capítulos de EPUB
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                {% if capitulos %}
+    {% regroup capitulos by volume as grupos %}
+    <div class="mt-4 space-y-3">
+        {% for grupo in grupos %}
+            <details class="rounded-lg border border-slate-700 bg-slate-950/40" {% if forloop.first %}open{% endif %}>
+                <summary class="cursor-pointer px-4 py-3 font-semibold text-slate-200">
+                    {% if grupo.grouper %}
+                        {{ grupo.grouper.titulo }}
+                    {% else %}
+                        Sem volume
+                    {% endif %}
+                    <span class="ml-2 text-sm font-normal text-slate-400">
+                        ({{ grupo.list|length }} capítulo{{ grupo.list|length|pluralize }})
+                    </span>
+                </summary>
+
+                <ol class="space-y-2 px-4 pb-4">
+                    {% for capitulo in grupo.list %}
+                        <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700 px-4 py-3">
+                            <a href="{% url 'ler_capitulo' capitulo.id %}"
+                               class="font-medium text-sky-300 transition hover:text-sky-200">
+                                Capítulo {{ capitulo.numero }}: {{ capitulo.titulo }}
+                            </a>
+
+                            <div class="flex flex-wrap items-center gap-3 text-sm">
+                                {% if capitulo.id in capitulos_lidos_ids %}
+                                    <span class="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
+                                        Lido
+                                    </span>
+                                {% endif %}
+                                {% if pode_gerenciar %}
+                                    <a href="{% url 'editar_capitulo' capitulo.id %}"
+                                       class="font-semibold text-slate-300 hover:text-white">
+                                        Editar
+                                    </a>
+                                    <a href="{% url 'deletar_capitulo' capitulo.id %}"
+                                       class="font-semibold text-rose-300 hover:text-rose-200">
+                                        Excluir
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ol>
+            </details>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="mt-4 text-sm italic text-slate-500">
+        Nenhum capítulo disponível para leitura ainda.
+    </p>
+{% endif %}
+                </section>
+            {% endif %}
+
             {% if obra.estado == 'ATIVA' %}
                 <div class="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-5">
                     {% if user.is_authenticated %}
-                        {% if leitura %}
+                        {% if obra.formato == 'WEBNOVEL' %}
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                                        Seu progresso automático
+                                    </h3>
+                                    {% if leitura %}
+                                        <p class="mt-1 text-sm text-slate-300">
+                                            Status:
+                                            <strong class="text-indigo-300">{{ leitura.get_status_display }}</strong>
+                                        </p>
+                                    {% else %}
+                                        <p class="mt-1 text-sm text-slate-300">
+                                            Seu progresso será salvo automaticamente ao ler os capítulos.
+                                        </p>
+                                    {% endif %}
+                                </div>
+
+                                {% if leitura %}
+                                    <span class="rounded-full bg-indigo-500/15 px-3 py-1 text-sm font-bold text-indigo-200">
+                                        {{ leitura.percentual }}%
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            {% if leitura %}
+                                <div class="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-800"
+                                     role="progressbar"
+                                     aria-label="Progresso de {{ obra.titulo }}"
+                                     aria-valuenow="{{ leitura.percentual }}"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    <div class="h-full rounded-full bg-indigo-500"
+                                         style="width: {{ leitura.percentual }}%"></div>
+                                </div>
+
+                                <p class="mt-2 text-xs text-slate-400">
+                                    {% if quantidade_capitulos %}
+                                        {{ leitura.capitulos_lidos_total }} de {{ quantidade_capitulos }} capítulos lidos ({{ leitura.percentual }}%)
+                                    {% else %}
+                                        {{ leitura.progresso_atual }} de {{ obra.total_de_unidades }} capítulos ({{ leitura.percentual }}%)
+                                    {% endif %}
+                                </p>
+                            {% endif %}
+
+                            <div class="mt-4 flex flex-wrap items-center gap-3">
+                                {% if leitura and leitura.ultimo_capitulo %}
+                                    <a href="{% url 'ler_capitulo' leitura.ultimo_capitulo.id %}"
+                                       class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                        Continuar lendo (Capítulo {{ leitura.ultimo_capitulo.numero }})
+                                    </a>
+                                {% elif primeiro_capitulo %}
+                                    <a href="{% url 'ler_capitulo' primeiro_capitulo.id %}"
+                                       class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                        Começar a ler
+                                    </a>
+                                {% endif %}
+                            </div>
+                        {% elif leitura %}
                             <div class="flex flex-wrap items-center justify-between gap-3">
                                 <div>
                                     <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
@@ -127,8 +297,7 @@
                             </div>
 
                             <p class="mt-2 text-xs text-slate-400">
-                                {{ leitura.progresso_atual }} de {{ obra.total_de_unidades }}
-                                {% if obra.formato == 'BOOK' %}páginas{% else %}capítulos{% endif %}
+                                {{ leitura.progresso_atual }} de {{ obra.total_de_unidades }} páginas
                             </p>
 
                             <form method="post" action="{% url 'atualizar_progresso' leitura.id %}" class="mt-4 flex flex-wrap items-end gap-3">
@@ -165,8 +334,7 @@
                                     </label>
                                     {{ leitura_form.progresso_atual }}
                                     <p class="mt-1 text-xs text-slate-500">
-                                        de {{ obra.total_de_unidades }}
-                                        {% if obra.formato == 'BOOK' %}páginas{% else %}capítulos{% endif %}
+                                        de {{ obra.total_de_unidades }} páginas
                                     </p>
                                 </div>
 
@@ -363,7 +531,7 @@
             {% endif %}
         </div>
 
-        {% if pode_moderar %}
+        {% if pode_gerenciar %}
             <div class="mt-8 flex flex-wrap gap-3 border-t border-slate-800 pt-6">
                 <a href="{% url 'editar_obra' obra.id %}"
                    class="rounded-lg bg-slate-700 px-5 py-2.5 text-sm font-medium text-white shadow-lg transition hover:bg-slate-600">

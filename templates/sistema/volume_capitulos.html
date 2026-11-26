@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block titulo %}Capítulos do volume {{ volume.titulo }} - {{ obra.titulo }} | Gestão de Leitura{% endblock %}
+{% block atual_obras %}aria-current="page"{% endblock %}
+
+{% block conteudo %}
+<div class="mx-auto w-full max-w-4xl rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-2xl md:p-8">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-slate-800 pb-4">
+        <div>
+            <a href="{% url 'gerenciar_volumes' obra.id %}"
+               class="text-xs font-medium text-indigo-400 transition hover:text-indigo-300">
+                ← Voltar aos volumes
+            </a>
+            <h1 class="mt-2 text-2xl font-bold text-slate-100">Capítulos do volume</h1>
+            <p class="text-sm text-slate-400">
+                <span class="font-semibold text-sky-300">{{ volume.titulo }}</span>
+                · Web Novel: {{ obra.titulo }}
+            </p>
+        </div>
+
+        <dl class="grid grid-cols-3 gap-3 text-center text-xs text-slate-400">
+            <div class="rounded-lg border border-slate-700 px-3 py-2">
+                <dt>No volume</dt>
+                <dd class="mt-1 text-lg font-bold text-sky-300">{{ qtd_no_volume }}</dd>
+            </div>
+            <div class="rounded-lg border border-slate-700 px-3 py-2">
+                <dt>Sem volume</dt>
+                <dd class="mt-1 text-lg font-bold text-slate-200">{{ qtd_sem_volume }}</dd>
+            </div>
+            <div class="rounded-lg border border-slate-700 px-3 py-2">
+                <dt>Em outros volumes</dt>
+                <dd class="mt-1 text-lg font-bold text-amber-300">{{ qtd_outros_volumes }}</dd>
+            </div>
+        </dl>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="mb-5 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if capitulos %}
+        <form method="POST" id="form-capitulos-volume">
+            {% csrf_token %}
+
+            <fieldset class="rounded-lg border border-slate-700 bg-slate-950/40 p-4">
+                <legend class="px-1 text-sm font-semibold text-slate-200">
+                    Selecionar por intervalo
+                </legend>
+                <p class="text-xs text-slate-400">
+                    O intervalo usa o número do capítulo, incluindo os extremos.
+                    Você pode selecionar vários intervalos antes de salvar.
+                </p>
+
+                <div class="mt-3 flex flex-wrap items-end gap-3">
+                    <div class="min-w-[140px]">
+                        <label for="{{ form.intervalo_inicio.id_for_label }}"
+                               class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            {{ form.intervalo_inicio.label }}
+                        </label>
+                        {{ form.intervalo_inicio }}
+                        {% for error in form.intervalo_inicio.errors %}
+                            <p class="mt-1 text-xs text-rose-400">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+
+                    <div class="min-w-[140px]">
+                        <label for="{{ form.intervalo_fim.id_for_label }}"
+                               class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            {{ form.intervalo_fim.label }}
+                        </label>
+                        {{ form.intervalo_fim }}
+                        {% for error in form.intervalo_fim.errors %}
+                            <p class="mt-1 text-xs text-rose-400">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" data-acao="selecionar-intervalo"
+                                class="rounded-lg border border-sky-500/50 px-4 py-2 text-sm font-semibold text-sky-300 transition hover:bg-sky-500/10">
+                            Selecionar intervalo
+                        </button>
+                        <button type="button" data-acao="desmarcar-intervalo"
+                                class="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800">
+                            Desmarcar intervalo
+                        </button>
+                    </div>
+                </div>
+
+                <p data-aviso-intervalo class="mt-2 text-xs text-amber-300" aria-live="polite"></p>
+
+                <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-3">
+                    <button type="button" data-acao="marcar-todos"
+                            class="rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-800">
+                        Marcar todos
+                    </button>
+                    <button type="button" data-acao="desmarcar-todos"
+                            class="rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-800">
+                        Desmarcar todos
+                    </button>
+                    <span class="ml-auto text-xs text-slate-400">
+                        Marcados agora: <strong data-contador class="text-sky-300">{{ qtd_selecionados }}</strong>
+                    </span>
+                </div>
+            </fieldset>
+
+            <fieldset class="mt-5">
+                <legend class="text-sm font-semibold text-slate-200">
+                    Capítulos
+                </legend>
+                <p class="text-xs text-slate-400">
+                    Marque os capítulos que pertencem a este volume. Os
+                    desmarcados serão removidos deste volume e capítulos de
+                    outros volumes serão movidos ao salvar.
+                </p>
+
+                {% if form.capitulos.errors %}
+                    <div class="mt-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                        {% for error in form.capitulos.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="mt-3 max-h-[32rem] space-y-2 overflow-y-auto rounded-lg border border-slate-800 p-3">
+                    {% for capitulo in capitulos %}
+                        <label for="cap_{{ capitulo.id }}"
+                               class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-950/40 px-4 py-3 transition hover:border-slate-600">
+                            <span class="flex items-center gap-3">
+                                <input type="checkbox"
+                                       name="capitulos"
+                                       value="{{ capitulo.id }}"
+                                       id="cap_{{ capitulo.id }}"
+                                       data-numero="{{ capitulo.numero }}"
+                                       class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-sky-500 focus:ring-sky-500"
+                                       {% if capitulo.id in selecionados_ids %}checked{% endif %}>
+                                <span class="font-medium text-slate-100">
+                                    Capítulo {{ capitulo.numero }}: {{ capitulo.titulo }}
+                                </span>
+                            </span>
+
+                            <span class="text-xs">
+                                {% if capitulo.volume_id == volume.id %}
+                                    <span class="rounded-full bg-sky-500/15 px-2.5 py-0.5 font-semibold text-sky-300">
+                                        Neste volume
+                                    </span>
+                                {% elif capitulo.volume %}
+                                    <span class="rounded-full bg-amber-500/15 px-2.5 py-0.5 font-semibold text-amber-300">
+                                        {{ capitulo.volume.titulo }} — será movido
+                                    </span>
+                                {% else %}
+                                    <span class="rounded-full bg-slate-700/60 px-2.5 py-0.5 font-semibold text-slate-300">
+                                        Sem volume
+                                    </span>
+                                {% endif %}
+                            </span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </fieldset>
+
+            <div class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-6">
+                <a href="{% url 'gerenciar_volumes' obra.id %}"
+                   class="text-sm font-medium text-slate-400 transition hover:text-slate-200">
+                    ← Voltar aos volumes
+                </a>
+
+                <button type="submit"
+                        class="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-600/20 transition hover:bg-sky-500 active:scale-95">
+                    Salvar capítulos do volume
+                </button>
+            </div>
+        </form>
+    {% else %}
+        <div class="rounded-lg border border-dashed border-slate-700 bg-slate-950/40 p-8 text-center">
+            <p class="text-sm font-semibold text-slate-200">
+                Nenhum capítulo cadastrado nesta obra ainda.
+            </p>
+            <p class="mt-1 text-xs text-slate-400">
+                Adicione capítulos ou importe um EPUB para depois vinculá-los a este volume.
+            </p>
+            <div class="mt-4 flex flex-wrap justify-center gap-2">
+                <a href="{% url 'adicionar_capitulo' obra.id %}"
+                   class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-500">
+                    + Adicionar capítulo
+                </a>
+                <a href="{% url 'importar_epub' obra.id %}"
+                   class="rounded-lg border border-sky-500/50 px-4 py-2 text-sm font-semibold text-sky-300 transition hover:bg-sky-500/10">
+                    Importar capítulos de EPUB
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var form = document.getElementById("form-capitulos-volume");
+        if (!form) {
+            return;
+        }
+
+        var caixas = Array.prototype.slice.call(
+            form.querySelectorAll('input[name="capitulos"]')
+        );
+        var inicio = document.getElementById("id_intervalo_inicio");
+        var fim = document.getElementById("id_intervalo_fim");
+        var contador = form.querySelector("[data-contador]");
+        var aviso = form.querySelector("[data-aviso-intervalo]");
+
+        function mostrarAviso(texto) {
+            if (aviso) {
+                aviso.textContent = texto;
+            }
+        }
+
+        function atualizarContador() {
+            if (!contador) {
+                return;
+            }
+            contador.textContent = caixas.filter(function (caixa) {
+                return caixa.checked;
+            }).length;
+        }
+
+        function limparIntervalo() {
+            if (inicio) {
+                inicio.value = "";
+            }
+            if (fim) {
+                fim.value = "";
+            }
+        }
+
+        function marcarTodos(valor) {
+            caixas.forEach(function (caixa) {
+                caixa.checked = valor;
+            });
+            limparIntervalo();
+            mostrarAviso("");
+            atualizarContador();
+        }
+
+        function marcarIntervalo(valor) {
+            var de = parseInt(inicio.value, 10);
+            var ate = parseInt(fim.value, 10);
+            if (isNaN(de) || isNaN(ate)) {
+                mostrarAviso("Informe o início e o fim do intervalo.");
+                return;
+            }
+            if (de > ate) {
+                mostrarAviso("O início do intervalo não pode ser maior que o fim.");
+                return;
+            }
+
+            caixas.forEach(function (caixa) {
+                var numero = parseInt(caixa.dataset.numero, 10);
+                if (numero >= de && numero <= ate) {
+                    caixa.checked = valor;
+                }
+            });
+            limparIntervalo();
+            mostrarAviso("");
+            atualizarContador();
+        }
+
+        var acoes = {
+            "marcar-todos": function () { marcarTodos(true); },
+            "desmarcar-todos": function () { marcarTodos(false); },
+            "selecionar-intervalo": function () { marcarIntervalo(true); },
+            "desmarcar-intervalo": function () { marcarIntervalo(false); }
+        };
+
+        Object.keys(acoes).forEach(function (acao) {
+            var botao = form.querySelector('[data-acao="' + acao + '"]');
+            if (botao) {
+                botao.addEventListener("click", acoes[acao]);
+            }
+        });
+
+        caixas.forEach(function (caixa) {
+            caixa.addEventListener("change", atualizarContador);
+        });
+
+        atualizarContador();
+    });
+</script>
+{% endblock %}

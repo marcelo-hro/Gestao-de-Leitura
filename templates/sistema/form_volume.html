@@ -22,6 +22,20 @@
         </div>
     </div>
 
+    {% if volume %}
+        <div class="mb-5 rounded-lg border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm text-sky-100">
+            Os capítulos deste volume são escolhidos à parte.
+            <a href="{% url 'gerenciar_capitulos_volume' volume.id %}"
+               class="font-semibold underline decoration-sky-400/50 underline-offset-2 hover:text-white">
+                Selecionar capítulos
+            </a>
+        </div>
+    {% else %}
+        <p class="mb-5 text-xs text-slate-400">
+            Depois de criar o volume, você poderá selecionar os capítulos que pertencem a ele.
+        </p>
+    {% endif %}
+
     <form method="POST" class="space-y-5">
         {% csrf_token %}
 

@@ -13,7 +13,7 @@ from . import epub_importacao as epub
 from .models import Obra, PreviaImportacaoEpub
 from .permissoes import moderador_requerido, pode_gerenciar_obra
 
-
+## Views relacionadas à importação de capítulos a partir de arquivos EPUB.
 def _obra_gerenciavel(request, obra_id, bloquear=False):
     consulta = Obra.objects.filter(formato="WEBNOVEL")
     if bloquear:
@@ -25,8 +25,7 @@ def _obra_gerenciavel(request, obra_id, bloquear=False):
         )
     return obra
 
-
-def _previa_do_usuario(request, obra, token, bloquear=False):
+#onde ocorre a previa da importação de capítulos a partir de um arquivo EPUB, 
     consulta = PreviaImportacaoEpub.objects.filter(
         token=token, obra=obra, usuario=request.user
     )
@@ -40,7 +39,7 @@ def _previa_do_usuario(request, obra, token, bloquear=False):
         return None
     return previa
 
-
+#onde de fato ocorre a importação de capítulos a partir de um arquivo EPUB, 
 @moderador_requerido
 def importar_epub(request, obra_id):
     obra = _obra_gerenciavel(request, obra_id)
@@ -74,7 +73,7 @@ def importar_epub(request, obra_id):
         status=400 if erro else 200,
     )
 
-
+#onde ocorre a previa dos volumes
 def _opcoes_volume(obra, indice):
     volumes_obra = list(obra.volumes.order_by("ordem", "id"))
     titulos_existentes = {v.titulo.strip().lower() for v in volumes_obra}
@@ -89,7 +88,7 @@ def _opcoes_volume(obra, indice):
             opcoes.append({"valor": f"novo:{vol}", "rotulo": f"{vol} (novo)"})
     return opcoes
 
-
+#onde valida o valor do volume, verificando se ele é válido e retornando o valor correto
 def _validar_valor_volume(valor, volumes_ids_validos, novos_validos):
     valor = (valor or "").strip()
     if not valor:
@@ -105,7 +104,7 @@ def _validar_valor_volume(valor, volumes_ids_validos, novos_validos):
         return f"novo:{titulo}" if titulo and titulo.lower() in novos_validos else ""
     return ""
 
-
+#onde ocorre a previa da importacao dos capitulos e volumes a partir de um arquivo EPUB, exibindo as opções de seleção para o usuário
 @moderador_requerido
 def previa_importacao_epub(request, obra_id, token):
     obra = _obra_gerenciavel(request, obra_id)
@@ -175,7 +174,7 @@ def previa_importacao_epub(request, obra_id, token):
         },
     )
 
-
+#onde aplica as alterações feitas pelo usuário na pagina de previa da importação de capítulos a partir de um arquivo EPUB, atualizando a seleção de capítulos e volumes na prévia
 def _aplicar_pagina(request, previa, obra, indice):
     volumes_ids_validos = set(obra.volumes.values_list("id", flat=True))
     novos_validos = {
@@ -223,7 +222,7 @@ def _aplicar_pagina(request, previa, obra, indice):
                 selecao[chave] = {**selecao[chave], "v": vol_lote}
     previa.selecao = selecao
 
-
+#onde salva a prévia da importação de capítulos a partir de um arquivo EPUB, aplicando as alterações feitas pelo usuário e redirecionando para a página de pré-visualização ou confirmando a importação
 @moderador_requerido
 @require_POST
 def salvar_previa_epub(request, obra_id, token):
@@ -251,7 +250,7 @@ def salvar_previa_epub(request, obra_id, token):
         destino += f"?page={pagina}"
     return redirect(destino)
 
-
+#onde confirma a importação de capítulos a partir de um arquivo EPUB, aplicando as alterações feitas pelo usuário e redirecionando para a página de resultado da importação
 def _confirmar(request, obra_id, token):
     with transaction.atomic():
         # Bloqueia obra e prévia: confirmações simultâneas são serializadas

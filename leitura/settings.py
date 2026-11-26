@@ -154,13 +154,13 @@ PDF_MAX_UPLOAD_SIZE = (
 EPUB_MAX_UPLOAD_SIZE = (
     int(os.environ.get("DJANGO_EPUB_MAX_SIZE_MB", "30")) * 1024 * 1024
 )
-EPUB_MAX_ARQUIVOS = int(os.environ.get("DJANGO_EPUB_MAX_ARQUIVOS", "3000"))
+EPUB_MAX_ARQUIVOS = int(os.environ.get("DJANGO_EPUB_MAX_ARQUIVOS", "5000"))
 EPUB_MAX_DESCOMPACTADO = (
     int(os.environ.get("DJANGO_EPUB_MAX_DESCOMPACTADO_MB", "150"))
     * 1024
     * 1024
 )
-EPUB_MAX_CAPITULOS = int(os.environ.get("DJANGO_EPUB_MAX_CAPITULOS", "5000"))
+EPUB_MAX_CAPITULOS = int(os.environ.get("DJANGO_EPUB_MAX_CAPITULOS", "7000"))
 EPUB_PREVIEW_ROOT = Path(
     os.environ.get("DJANGO_EPUB_PREVIEW_ROOT")
     or (BASE_DIR / "privado" / "epub_previas")

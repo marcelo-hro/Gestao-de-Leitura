@@ -24,7 +24,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-
+#é usado se o arquivo EPUB enviado não for válido, seja por tamanho, assinatura, estrutura ou conteúdo. A exceção é capturada e a mensagem é exibida para o usuário.
 class EpubInvalido(Exception):
     """Erro de validação com mensagem em português para o usuário."""
 
@@ -35,7 +35,7 @@ class EpubInvalido(Exception):
 
 _RE_ENTIDADE = re.compile(rb"<!ENTITY", re.IGNORECASE)
 
-
+#onde abre o epub e faz sua leitura
 class LeitorEpub:
     def __init__(self, arquivo):
         limite = settings.EPUB_MAX_UPLOAD_SIZE
@@ -128,11 +128,11 @@ class LeitorEpub:
                 continue
         return dados.decode("latin-1")
 
-
+#onde extrai o nome de um elemento XML, removendo o namespace se presente
 def _local(tag):
     return tag.rsplit("}", 1)[-1] if isinstance(tag, str) else ""
 
-
+#onde resolve os caminhos relativos dos arquivos dentro do EPUB, combinando o diretório base com o href fornecido. Se não houver diretório base, apenas normaliza o href.
 def _resolver(base_dir, href):
     href = unquote(href)
     return posixpath.normpath(posixpath.join(base_dir, href)) if base_dir else posixpath.normpath(href)
@@ -150,7 +150,7 @@ _BLOCOS = {
 _TITULOS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 _IGNORAR = {"head", "script", "style", "nav", "svg", "math", "title"}
 
-
+#onde gera tokens a partir do conteúdo XHTML, identificando elementos de ancoragem, parágrafos e títulos. O parser ignora certos elementos como scripts e estilos, e normaliza o texto removendo espaços extras.
 class _ExtratorXhtml(HTMLParser):
     """Gera tokens: ('a', id) | ('p', texto) | ('h', texto)."""
 
@@ -212,14 +212,14 @@ class _ExtratorXhtml(HTMLParser):
         super().close()
         self._flush()
 
-
+#onde extrai tokens de texto a partir do conteúdo XHTML, utilizando o parser definido acima. A função `extrair_tokens` cria uma instância do `_ExtratorXhtml`, alimenta-o com o conteúdo XHTML e retorna a lista de tokens gerados.
 def extrair_tokens(xhtml):
     parser = _ExtratorXhtml()
     parser.feed(xhtml)
     parser.close()
     return parser.tokens
 
-
+#onde le o sumario html e guarda a hieraquia dos links
 class _LeitorNav(HTMLParser):
     """Lê o <nav epub:type="toc"> do EPUB 3 como árvore."""
 
@@ -328,7 +328,7 @@ def _limpo(txt):
 # ---------------------------------------------------------------------------
 # Estrutura do livro
 # ---------------------------------------------------------------------------
-
+#onde guarda a estrutura do livro, incluindo o spine (caminhos internos), tokens por item do spine, âncoras, árvore de sumário (toc), fonte do sumário e avisos. A classe Livro é usada para armazenar essas informações durante a análise do EPUB.
 @dataclass
 class Livro:
     spine: list = field(default_factory=list)          # caminhos internos
@@ -338,7 +338,7 @@ class Livro:
     fonte_toc: str = ""
     avisos: list = field(default_factory=list)
 
-
+#onde le o container.xml, encontra o arquivo OPF, lê o OPF e constrói a estrutura do livro, incluindo o spine, tokens, âncoras e sumário (toc). A função `ler_livro` retorna um objeto `Livro` contendo essas informações.
 def ler_livro(arquivo):
     leitor = LeitorEpub(arquivo)
     container = leitor.xml("META-INF/container.xml")

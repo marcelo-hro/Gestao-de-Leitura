@@ -92,6 +92,11 @@ urlpatterns = [
         name="editar_volume",
     ),
     path(
+        "volumes/<int:volume_id>/capitulos/",
+        views.gerenciar_capitulos_volume,
+        name="gerenciar_capitulos_volume",
+    ),
+    path(
         "obras/<int:obra_id>/capitulos/novo/",
         views.adicionar_capitulo,
         name="adicionar_capitulo",

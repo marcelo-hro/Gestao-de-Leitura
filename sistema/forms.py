@@ -11,7 +11,7 @@ ESTILO_INPUT = (
     "focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
 )
 
-
+#onde aparece o formulário de login personalizado, que herda de AuthenticationForm e adiciona classes CSS aos campos de entrada, além de definir atributos como autofocus e placeholder para os campos de nome de usuário e senha.
 class LoginForm(AuthenticationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -23,7 +23,7 @@ class LoginForm(AuthenticationForm):
         )
         self.fields["password"].widget.attrs.update({"placeholder": "Senha"})
 
-
+#onde aparece o formulário de registro personalizado, que herda de UserCreationForm e adiciona um campo de e-mail obrigatório, além de adicionar classes CSS aos campos de entrada e definir atributos como autofocus e placeholder para os campos de nome de usuário, e-mail, senha e confirmação de senha. O método save é sobrescrito para garantir que o e-mail seja salvo corretamente no modelo User.
 class RegistroForm(UserCreationForm):
     email = forms.EmailField(label="E-mail", required=True)
 
@@ -54,7 +54,7 @@ class RegistroForm(UserCreationForm):
             user.save()
         return user
 
-
+#onde se pode adicionar uma nova obra
 class ObraForm(forms.ModelForm):
     novo_genero = forms.CharField(
         label="Novo gênero",
@@ -184,7 +184,7 @@ class ObraForm(forms.ModelForm):
 
         return cleaned_data
 
-
+#onde se pode adicionar um novo volume a uma obra
 class VolumeForm(forms.ModelForm):
     class Meta:
         model = Volume
@@ -231,7 +231,90 @@ class VolumeForm(forms.ModelForm):
             )
         return ordem
 
+#onde se pode adicionar capítulos a um volume de uma obra, permitindo selecionar capítulos existentes ou definir um intervalo de capítulos a serem incluídos. O formulário valida se os capítulos selecionados pertencem à obra correta e se o intervalo informado é válido.
+class VolumeCapitulosForm(forms.Form):
+    capitulos = forms.ModelMultipleChoiceField(
+        queryset=Capitulo.objects.none(),
+        required=False,
+        label="Capítulos do volume",
+        error_messages={
+            "invalid_choice": (
+                "Um dos capítulos selecionados não pertence a esta obra."
+            ),
+            "invalid_list": "Selecione capítulos válidos.",
+        },
+    )
+    intervalo_inicio = forms.IntegerField(
+        required=False,
+        min_value=1,
+        label="Do capítulo",
+        widget=forms.NumberInput(
+            attrs={"min": 1, "placeholder": "Ex.: 10"}
+        ),
+    )
+    intervalo_fim = forms.IntegerField(
+        required=False,
+        min_value=1,
+        label="Até o capítulo",
+        widget=forms.NumberInput(
+            attrs={"min": 1, "placeholder": "Ex.: 20"}
+        ),
+    )
 
+    def __init__(self, *args, obra=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.obra = obra
+        if obra is not None:
+            self.fields["capitulos"].queryset = Capitulo.objects.filter(
+                obra=obra
+            ).order_by("numero")
+        for nome in ("intervalo_inicio", "intervalo_fim"):
+            self.fields[nome].widget.attrs.update({"class": ESTILO_INPUT})
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.has_error("intervalo_inicio") or self.has_error(
+            "intervalo_fim"
+        ):
+            return cleaned_data
+
+        inicio = cleaned_data.get("intervalo_inicio")
+        fim = cleaned_data.get("intervalo_fim")
+
+        if (inicio is None) != (fim is None):
+            raise forms.ValidationError(
+                "Informe os dois números do intervalo ou deixe ambos em branco."
+            )
+
+        if inicio is not None and fim is not None and inicio > fim:
+            raise forms.ValidationError(
+                "O início do intervalo não pode ser maior que o fim."
+            )
+
+        return cleaned_data
+
+    def capitulos_do_intervalo(self):
+        inicio = self.cleaned_data.get("intervalo_inicio")
+        fim = self.cleaned_data.get("intervalo_fim")
+        if inicio is None or fim is None or self.obra is None:
+            return Capitulo.objects.none()
+        return self.obra.capitulos.filter(
+            numero__gte=inicio,
+            numero__lte=fim,
+        )
+
+    def capitulos_selecionados(self):
+        selecionados = list(self.cleaned_data.get("capitulos") or [])
+        ids = {capitulo.id for capitulo in selecionados}
+
+        for capitulo in self.capitulos_do_intervalo():
+            if capitulo.id not in ids:
+                selecionados.append(capitulo)
+                ids.add(capitulo.id)
+
+        return selecionados
+
+#onde permite adicionar ou editar capítulos de uma obra, incluindo campos para número do capítulo, volume, título e conteúdo. O formulário valida se o número do capítulo é único dentro da obra e se o volume selecionado pertence à obra correta.
 class CapituloForm(forms.ModelForm):
     class Meta:
         model = Capitulo
@@ -303,7 +386,7 @@ class CapituloForm(forms.ModelForm):
     def clean_conteudo(self):
         return self.cleaned_data["conteudo"].strip()
 
-
+#onde é possivel registrar o progresso de leitura de uma obra por um usuário, permitindo que ele informe o número da unidade atual que está lendo. O formulário valida se o progresso informado não ultrapassa o total de unidades da obra.
 class LeituraForm(forms.ModelForm):
     class Meta:
         model = Leitura
@@ -333,7 +416,7 @@ class LeituraForm(forms.ModelForm):
                 )
         return valor
 
-
+#onde representa uma estante de livros de um usuário, permitindo que ele organize suas obras favoritas em diferentes estantes com nomes personalizados. Cada estante pertence a um usuário específico e pode conter várias obras, enquanto cada obra pode estar presente em várias estantes. Além disso, possui restrições para garantir que cada usuário não tenha estantes com nomes duplicados.
 class EstanteForm(forms.ModelForm):
     class Meta:
         model = Estante
@@ -374,7 +457,7 @@ class EstanteForm(forms.ModelForm):
 
         return nome
 
-
+#onde se pode fazer uma avaliação de uma obra feita por um usuário, incluindo informações como a nota atribuída, o comentário opcional, a data de criação e atualização da avaliação. Cada avaliação está associada a um usuário e a uma obra específica, e possui restrições para garantir que cada usuário só possa avaliar uma obra uma vez.
 class AvaliacaoForm(forms.ModelForm):
     class Meta:
         model = Avaliacao

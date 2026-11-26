@@ -20,6 +20,7 @@ from sistema.forms import (
     LeituraForm,
     ObraForm,
     RegistroForm,
+    VolumeCapitulosForm,
     VolumeForm,
 )
 from .models import (
@@ -39,8 +40,9 @@ from .permissoes import (
     pode_gerenciar_obra,
     pode_visualizar_obra,
 )
-
-
+#leitor 123
+#mod 123
+#dashboard
 def dashboard(request):
     obras_ativas = Obra.objects.filter(estado=Obra.Estado.ATIVA)
     destaques = (
@@ -107,7 +109,7 @@ def dashboard(request):
         },
     )
 
-
+#onde o usuario pode ver todas as obras disponiveis no sistema
 def catalogo(request):
     termo = request.GET.get("q", "").strip()
     obras = (
@@ -193,7 +195,7 @@ def adicionar_obra(request):
         },
     )
 
-
+#edição de obra, onde o moderador ou admin pode editar a obra
 @moderador_requerido
 def editar_obra(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id)
@@ -223,7 +225,7 @@ def editar_obra(request, obra_id):
         {"form": form, "obra": obra},
     )
 
-
+#deletar obra, onde o moderador ou admin pode deletar a obra
 @moderador_requerido
 def deletar_obra(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id)
@@ -243,7 +245,7 @@ def deletar_obra(request, obra_id):
 
     return render(request, "sistema/deletar_obra.html", {"obra": obra})
 
-
+#visualizar obra, onde o usuario pode ver a obra e seus detalhes
 def visualizar_obra(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id)
 
@@ -340,7 +342,7 @@ def visualizar_obra(request, obra_id):
         },
     )
 
-
+#leitura de obra, onde o usuario pode ler a obra em formato PDF sendo mais  especifico ler livros
 def ler_pdf(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id)
 
@@ -365,7 +367,7 @@ def ler_pdf(request, obra_id):
     resposta["X-Content-Type-Options"] = "nosniff"
     return resposta
 
-
+#local onde o moderador ou admin pode gerenciar os volumes de uma obra do tipo WEBNOVEL
 def gerenciar_volumes(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id, formato="WEBNOVEL")
 
@@ -389,7 +391,7 @@ def gerenciar_volumes(request, obra_id):
         },
     )
 
-
+#onde o moderador ou admin pode criar um volume para uma obra do tipo WEBNOVEL
 @moderador_requerido
 def criar_volume(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id, formato="WEBNOVEL")
@@ -410,9 +412,13 @@ def criar_volume(request, obra_id):
             volume = form.save()
             messages.success(
                 request,
-                f'Volume "{volume.titulo}" criado com sucesso.',
+                f'Volume "{volume.titulo}" criado com sucesso. '
+                "Selecione os capítulos que pertencem a ele.",
             )
-            return redirect("gerenciar_volumes", obra_id=obra.id)
+            return redirect(
+                "gerenciar_capitulos_volume",
+                volume_id=volume.id,
+            )
     else:
         form = VolumeForm(instance=volume)
 
@@ -422,7 +428,7 @@ def criar_volume(request, obra_id):
         {"form": form, "obra": obra, "volume": None},
     )
 
-
+#onde o moderador ou admin pode editar um volume de uma obra do tipo WEBNOVEL
 @moderador_requerido
 def editar_volume(request, volume_id):
     volume = get_object_or_404(
@@ -457,7 +463,107 @@ def editar_volume(request, volume_id):
         {"form": form, "obra": obra, "volume": volume},
     )
 
+#local onde gerenciar os capítulos de um volume de uma obra do tipo WEBNOVEL, onde o moderador ou admin pode adicionar ou remover capítulos do volume
+@moderador_requerido
+def gerenciar_capitulos_volume(request, volume_id):
+    volume = get_object_or_404(
+        Volume.objects.select_related("obra"),
+        id=volume_id,
+    )
+    obra = volume.obra
 
+    if obra.formato != "WEBNOVEL":
+        raise Http404("Volume não encontrado.")
+
+    if not pode_gerenciar_obra(request.user, obra):
+        raise PermissionDenied(
+            "Você não tem permissão para gerenciar os capítulos deste volume."
+        )
+
+    capitulos = obra.capitulos.select_related("volume").order_by("numero")
+
+    if request.method == "POST":
+        form = VolumeCapitulosForm(request.POST, obra=obra)
+        if form.is_valid():
+            selecionados = form.capitulos_selecionados()
+            ids_selecionados = {
+                capitulo.id for capitulo in selecionados
+            }
+            ids_atuais = set(
+                volume.capitulos.values_list("id", flat=True)
+            )
+            movidos = sum(
+                1
+                for capitulo in selecionados
+                if capitulo.volume_id is not None
+                and capitulo.volume_id != volume.id
+            )
+
+            with transaction.atomic():
+                remover = ids_atuais - ids_selecionados
+                if remover:
+                    Capitulo.objects.filter(id__in=remover).update(
+                        volume=None
+                    )
+
+                adicionar = ids_selecionados - ids_atuais
+                if adicionar:
+                    Capitulo.objects.filter(id__in=adicionar).update(
+                        volume=volume
+                    )
+
+            total = len(ids_selecionados)
+            mensagem = (
+                f'Volume "{volume.titulo}" atualizado: {total} '
+                f"capítulo{'s' if total != 1 else ''} "
+                f"vinculado{'s' if total != 1 else ''}."
+            )
+            if movidos:
+                mensagem += (
+                    f" {movidos} capítulo{'s' if movidos != 1 else ''} "
+                    f"movido{'s' if movidos != 1 else ''} de outro"
+                    f"{'s' if movidos != 1 else ''} volume"
+                    f"{'s' if movidos != 1 else ''}."
+                )
+            messages.success(request, mensagem)
+            return redirect("gerenciar_volumes", obra_id=obra.id)
+
+        selecionados_ids = set()
+        for valor in request.POST.getlist("capitulos"):
+            try:
+                selecionados_ids.add(int(valor))
+            except (TypeError, ValueError):
+                continue
+        selecionados_ids &= set(
+            capitulos.values_list("id", flat=True)
+        )
+    else:
+        form = VolumeCapitulosForm(obra=obra)
+        selecionados_ids = set(
+            volume.capitulos.values_list("id", flat=True)
+        )
+
+    return render(
+        request,
+        "sistema/volume_capitulos.html",
+        {
+            "obra": obra,
+            "volume": volume,
+            "capitulos": capitulos,
+            "form": form,
+            "selecionados_ids": selecionados_ids,
+            "qtd_selecionados": len(selecionados_ids),
+            "qtd_no_volume": volume.capitulos.count(),
+            "qtd_sem_volume": obra.capitulos.filter(
+                volume__isnull=True
+            ).count(),
+            "qtd_outros_volumes": obra.capitulos.filter(
+                volume__isnull=False
+            ).exclude(volume=volume).count(),
+        },
+    )
+
+#onde o moderador ou admin pode adicionar um capítulo a uma obra do tipo WEBNOVEL
 @moderador_requerido
 def adicionar_capitulo(request, obra_id):
     obra = get_object_or_404(Obra, id=obra_id, formato="WEBNOVEL")
@@ -484,7 +590,7 @@ def adicionar_capitulo(request, obra_id):
         {"form": form, "obra": obra, "capitulo": None},
     )
 
-
+#onde se pode editar um capítulo de uma obra do tipo WEBNOVEL, onde o moderador ou admin pode editar o capítulo
 @moderador_requerido
 def editar_capitulo(request, capitulo_id):
     capitulo = get_object_or_404(
@@ -516,7 +622,7 @@ def editar_capitulo(request, capitulo_id):
         {"form": form, "obra": obra, "capitulo": capitulo},
     )
 
-
+#onde pode se deletar um capítulo de uma obra do tipo WEBNOVEL, onde o moderador ou admin pode deletar o capítulo
 @moderador_requerido
 def deletar_capitulo(request, capitulo_id):
     capitulo = get_object_or_404(
@@ -545,7 +651,7 @@ def deletar_capitulo(request, capitulo_id):
         {"capitulo": capitulo, "obra": obra},
     )
 
-
+#onde se torna possivel a leitur dentro do site
 def ler_capitulo(request, capitulo_id):
     capitulo = get_object_or_404(
         Capitulo.objects.select_related("obra"),
@@ -582,7 +688,7 @@ def ler_capitulo(request, capitulo_id):
         },
     )
 
-
+#onde ocorre o registro do progresso de leitura de um capítulo de uma obra do tipo WEBNOVEL, onde o usuario pode registrar se leu ou apenas acessou o capítulo
 @login_required
 @require_POST
 def registrar_progresso_capitulo(request, capitulo_id):
@@ -648,7 +754,7 @@ def registrar_progresso_capitulo(request, capitulo_id):
         }
     )
 
-
+#onde o usuario pode ver todas as leituras que ele iniciou, seja de obras do tipo BOOK ou WEBNOVEL
 @login_required
 def minhas_leituras(request):
     base = Leitura.objects.filter(usuario=request.user).select_related(
@@ -666,7 +772,7 @@ def minhas_leituras(request):
         {"lendo": lendo, "concluidas": concluidas},
     )
 
-
+#onde o usuario pode iniciar a leitura de uma obra do tipo BOOK ou WEBNOVEL, registrando o progresso de leitura
 @login_required
 @require_POST
 def iniciar_leitura(request, obra_id):
@@ -702,7 +808,7 @@ def iniciar_leitura(request, obra_id):
 
     return redirect("visualizar_obra", obra_id=obra.id)
 
-
+#onde se atualiza o progresso de leitura de uma obra do tipo BOOK, registrando o progresso de leitura
 @login_required
 @require_POST
 def atualizar_progresso(request, leitura_id):
@@ -737,7 +843,7 @@ def atualizar_progresso(request, leitura_id):
 
     return redirect("visualizar_obra", obra_id=leitura.obra_id)
 
-
+#onde o usuario pode ver todas as estantes que ele criou, podendo criar, editar e deletar estantes
 @login_required
 def minhas_estantes(request):
     estantes = (
@@ -756,7 +862,7 @@ def minhas_estantes(request):
         {"estantes": estantes},
     )
 
-
+#onde o usuario pode criar uma estante, podendo adicionar obras a ela
 @login_required
 def criar_estante(request):
     estante = Estante(usuario=request.user)
@@ -776,7 +882,7 @@ def criar_estante(request):
         {"form": form, "estante": None},
     )
 
-
+#onde o usuario pode editar uma estante, podendo adicionar ou remover obras dela
 @login_required
 def editar_estante(request, estante_id):
     estante = get_object_or_404(
@@ -800,7 +906,7 @@ def editar_estante(request, estante_id):
         {"form": form, "estante": estante},
     )
 
-
+#onde o usuario pode deletar uma estante, removendo todas as obras dela
 @login_required
 def deletar_estante(request, estante_id):
     estante = get_object_or_404(
@@ -821,7 +927,7 @@ def deletar_estante(request, estante_id):
         {"estante": estante},
     )
 
-
+#onde o usuario pode visualizar uma estante, podendo ver todas as obras que ela contém e adicionar novas obras a ela
 @login_required
 def visualizar_estante(request, estante_id):
     estante = get_object_or_404(
@@ -858,7 +964,7 @@ def visualizar_estante(request, estante_id):
         },
     )
 
-
+#redireciona para a página de visualização da estante ou para a URL especificada no parâmetro "next" do POST
 def _redirecionar_acao_estante(request, estante):
     destino = request.POST.get("next", "")
     if destino and url_has_allowed_host_and_scheme(
@@ -869,7 +975,7 @@ def _redirecionar_acao_estante(request, estante):
         return redirect(destino)
     return redirect("visualizar_estante", estante_id=estante.id)
 
-
+#onde o usuario pode adicionar uma obra a uma estante, caso a obra já esteja na estante, uma mensagem de informação é exibida
 @login_required
 @require_POST
 def adicionar_obra_estante(request):
@@ -898,7 +1004,7 @@ def adicionar_obra_estante(request):
 
     return _redirecionar_acao_estante(request, estante)
 
-
+#onde o usuario pode remover uma obra de uma estante, caso a obra não esteja na estante, uma mensagem de informação é exibida
 @login_required
 @require_POST
 def remover_obra_estante(request):
@@ -923,7 +1029,7 @@ def remover_obra_estante(request):
 
     return _redirecionar_acao_estante(request, estante)
 
-
+#onde o usuario pode salvar uma avaliação de uma obra, caso o usuário já tenha avaliado a obra, a avaliação será atualizada
 @login_required
 @require_POST
 def salvar_avaliacao(request, obra_id):
@@ -957,7 +1063,7 @@ def salvar_avaliacao(request, obra_id):
 
     return redirect("visualizar_obra", obra_id=obra.id)
 
-
+#onde o usuario pode deletar uma avaliação de uma obra, caso a avaliação não exista, uma mensagem de erro é exibida
 @login_required
 @require_POST
 def deletar_avaliacao(request, avaliacao_id):
@@ -971,7 +1077,7 @@ def deletar_avaliacao(request, avaliacao_id):
     messages.success(request, "Avaliação removida.")
     return redirect("visualizar_obra", obra_id=obra_id)
 
-
+#onde o moderador ou admin pode ver todas as obras pendentes de aprovação, podendo aprovar ou rejeitar as obras
 @moderador_requerido
 def painel_moderacao(request):
     pendentes = (
@@ -986,7 +1092,7 @@ def painel_moderacao(request):
         {"pendentes": pendentes},
     )
 
-
+#onde somente o admin pode aprovar ou rejeitar uma obra pendente de aprovação, caso a obra não esteja pendente, uma mensagem de erro é exibida
 @admin_requerido
 @require_POST
 def moderar_obra(request, obra_id):
@@ -1018,8 +1124,10 @@ def moderar_obra(request, obra_id):
         messages.error(request, "Ação inválida.")
 
     return redirect("painel_moderacao")
+#leitor 123
+#mod 123
 
-
+# criacao do login e registro de usuario
 def registrar(request):
     if request.user.is_authenticated:
         return redirect("dashboard")

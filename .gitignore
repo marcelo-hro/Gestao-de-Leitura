@@ -25,3 +25,6 @@ Thumbs.db
 
 # Observação: db.sqlite3 e midia/ são mantidos no repositório
 # neste projeto acadêmico para preservar os dados de exemplo.
+
+# Banco de dados local
+/db.sqlite3

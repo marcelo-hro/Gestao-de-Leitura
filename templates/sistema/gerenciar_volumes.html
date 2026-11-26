@@ -44,12 +44,23 @@
                             <td class="px-3 py-3 font-mono text-slate-300">{{ volume.ordem }}</td>
                             <td class="px-3 py-3 font-medium text-slate-100">{{ volume.titulo }}</td>
                             <td class="px-3 py-3 text-slate-300">
-                                {{ volume.qtd_capitulos }} capítulo{{ volume.qtd_capitulos|pluralize }}
+                                {% if pode_gerenciar %}
+                                    <a href="{% url 'gerenciar_capitulos_volume' volume.id %}"
+                                       class="font-semibold text-sky-300 hover:text-sky-200">
+                                        {{ volume.qtd_capitulos }} capítulo{{ volume.qtd_capitulos|pluralize }}
+                                    </a>
+                                {% else %}
+                                    {{ volume.qtd_capitulos }} capítulo{{ volume.qtd_capitulos|pluralize }}
+                                {% endif %}
                             </td>
                             {% if pode_gerenciar %}
                                 <td class="px-3 py-3 text-right">
-                                    <a href="{% url 'editar_volume' volume.id %}"
+                                    <a href="{% url 'gerenciar_capitulos_volume' volume.id %}"
                                        class="font-semibold text-sky-300 hover:text-sky-200">
+                                        Selecionar capítulos
+                                    </a>
+                                    <a href="{% url 'editar_volume' volume.id %}"
+                                       class="ml-4 font-semibold text-slate-300 hover:text-white">
                                         Editar
                                     </a>
                                 </td>
@@ -75,6 +86,10 @@
     {% if capitulos_sem_volume %}
         <p class="mt-5 text-xs text-slate-400">
             Capítulos ainda sem volume: <strong class="text-slate-200">{{ capitulos_sem_volume }}</strong>.
+            {% if pode_gerenciar %}
+                Use <strong class="text-slate-200">Selecionar capítulos</strong> em um volume
+                para vinculá-los, inclusive por intervalo.
+            {% endif %}
         </p>
     {% endif %}
 </div>

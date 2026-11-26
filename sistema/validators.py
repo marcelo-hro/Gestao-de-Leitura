@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
-
+#onde se valida se o arquivo enviado é um PDF válido e se o tamanho do arquivo não excede o limite definido em PDF_MAX_UPLOAD_SIZE
 def validar_assinatura_pdf(arquivo):
     """Confere se o conteúdo começa com a assinatura de um PDF."""
     try:
@@ -18,13 +18,13 @@ def validar_assinatura_pdf(arquivo):
             "O arquivo enviado não contém uma assinatura de PDF válida."
         )
 
-
+#onde se valida o tamanho do arquivo PDF enviado, comparando com o limite definido em PDF_MAX_UPLOAD_SIZE
 def validar_tamanho_pdf(arquivo):
     """Confere o tamanho do PDF contra PDF_MAX_UPLOAD_SIZE."""
     limite = getattr(
         settings,
         "PDF_MAX_UPLOAD_SIZE",
-        20 * 1024 * 1024,
+        50 * 1024 * 1024,
     )
     if arquivo.size > limite:
         raise ValidationError(

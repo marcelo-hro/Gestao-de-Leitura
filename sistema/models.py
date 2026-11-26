@@ -13,7 +13,7 @@ from django.utils import timezone
 from .storage import ArmazenamentoPdfPrivado
 from .validators import validar_assinatura_pdf, validar_tamanho_pdf
 
-
+#onde se define o papel de um usuario
 class Perfil(models.Model):
     class Papel(models.TextChoices):
         LEITOR = "LEITOR", "Leitor"
@@ -42,7 +42,7 @@ class Perfil(models.Model):
     def __str__(self):
         return f"{self.usuario.username} ({self.get_papel_display()})"
 
-
+#onde se define o gênero de uma obra
 class Genero(models.Model):
     nome = models.CharField("Nome", max_length=80, unique=True)
 
@@ -50,7 +50,7 @@ class Genero(models.Model):
         return self.nome
 
 
-
+#representa uma obra literária, que pode ser um livro ou uma web novel, com informações como título, autor, sinopse, formato, total de unidades (páginas ou capítulos), gêneros, imagem, arquivo PDF, estado (pendente, ativa ou rejeitada), usuário que submeteu a obra e motivo de rejeição. Além disso, possui relacionamentos com volumes e capítulos no caso de web novels.
 class Obra(models.Model):
     FORMAT_CHOICES = [
         ("BOOK", "Livro (Páginas)"),
@@ -113,7 +113,7 @@ class Obra(models.Model):
     def __str__(self):
         return f"{self.titulo} ({self.get_formato_display()})"
 
-
+#local onde agrupa os capitulos de uma obra do tipo Web Novel, permitindo organizar os capítulos em volumes com título e ordem de exibição. Cada volume pertence a uma obra específica e possui restrições de validação para garantir que só possa ser vinculado a obras do formato Web Novel.
 class Volume(models.Model):
     obra = models.ForeignKey(
         Obra,
@@ -154,7 +154,7 @@ class Volume(models.Model):
                 }
             )
 
-
+#onde guarda a obra do tipo Web Novel, com informações como número, título, conteúdo e volume associado. Cada capítulo pertence a uma obra específica e possui restrições de validação para garantir que só possa ser vinculado a obras do formato Web Novel e que o volume escolhido pertença à mesma obra.
 class Capitulo(models.Model):
     obra = models.ForeignKey(
         Obra,
@@ -213,7 +213,7 @@ class Capitulo(models.Model):
                 }
             )
 
-
+#onde representa uma prévia de importação de capítulos a partir de um arquivo EPUB, associada a um usuário e uma obra específica. Contém informações sobre o arquivo da prévia, a seleção de capítulos, avisos gerados durante a importação, se há ambiguidade na seleção, o total de capítulos detectados, a data de criação e a data de expiração da prévia.
 class PreviaImportacaoEpub(models.Model):
     token = models.UUIDField(
         "Token",
@@ -253,7 +253,7 @@ class PreviaImportacaoEpub(models.Model):
     def expirada(self):
         return self.expira_em <= timezone.now()
 
-
+#onde se guarda o progresso de leitura de uma obra por um usuário, incluindo informações como status (lendo ou concluído), progresso atual, último capítulo acessado, datas de início, atualização e conclusão da leitura. Além disso, possui propriedades para calcular o total de capítulos disponíveis, o total de capítulos lidos e o percentual de progresso da leitura.
 class Leitura(models.Model):
     class Status(models.TextChoices):
         LENDO = "LENDO", "Lendo"
@@ -385,7 +385,7 @@ class Leitura(models.Model):
 
         super().save(*args, **kwargs)
 
-
+#registra o fato de um usuário ter lido um capítulo específico de uma obra, armazenando informações como o usuário, a obra, o capítulo e a data em que foi lido. Além disso, possui restrições para garantir que cada usuário só possa registrar a leitura de um capítulo uma vez e índices para otimizar consultas relacionadas a leituras de capítulos por usuário e obra.
 class CapituloLido(models.Model):
     usuario = models.ForeignKey(
         User,
@@ -423,7 +423,7 @@ class CapituloLido(models.Model):
     def __str__(self):
         return f"{self.usuario.username} - {self.capitulo}"
 
-
+#onde representa uma estante de livros de um usuário, permitindo que ele organize suas obras favoritas em diferentes estantes com nomes personalizados. Cada estante pertence a um usuário específico e pode conter várias obras, enquanto cada obra pode estar presente em várias estantes. Além disso, possui restrições para garantir que cada usuário não tenha estantes com nomes duplicados.
 class Estante(models.Model):
     usuario = models.ForeignKey(
         User,
@@ -455,7 +455,7 @@ class Estante(models.Model):
     def __str__(self):
         return f"{self.nome} ({self.usuario.username})"
 
-
+#onde representa uma avaliação de uma obra feita por um usuário, incluindo informações como a nota atribuída, o comentário opcional, a data de criação e atualização da avaliação. Cada avaliação está associada a um usuário e a uma obra específica, e possui restrições para garantir que cada usuário só possa avaliar uma obra uma vez.
 class Avaliacao(models.Model):
     NOTA_CHOICES = [
         (1, "1 estrela"),
